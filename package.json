@@ -25,7 +25,8 @@
     "example:node": "tsx ./example/load-node.js",
     "example:bun": ""
   },
-  "module": "./src/kuromoji.ts",
+  "module": "./build/kuromoji.js",
+  "types": "./src/kuromoji.ts",
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@types/bun": "^1.2.2",
