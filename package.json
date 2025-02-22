@@ -4,7 +4,8 @@
   "type": "module",
   "version": "0.1.2",
   "author": "Takuya Asano <takuya.a@gmail.com>",
-  "main": "./src/kuromoji.js",
+  "main": "./build/kuromoji.js",
+  "source": "./src/kuromoji.ts",
   "keywords": [
     "japanese",
     "morphological analyzer",
@@ -15,7 +16,7 @@
   ],
   "license": "Apache-2.0",
   "scripts": {
-    "build": "vite build",
+    "build": "parcel build",
     "build-dict": "vite build --mode dict",
     "coverage": "vitest run --coverage",
     "lint": "biome check ./src",
@@ -23,10 +24,11 @@
     "watch": "vite build --watch",
     "example:deno": "deno run -A --unstable-sloppy-imports ./example/load-deno.js",
     "example:node": "tsx ./example/load-node.js",
-    "example:bun": ""
+    "example:bun": "bun run ./example/load-bun.js"
   },
-  "module": "./build/kuromoji.js",
-  "types": "./src/kuromoji.ts",
+  "engines": {
+    "node": ">= 12"
+  },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@types/bun": "^1.2.2",
@@ -34,6 +36,8 @@
     "@types/node": "^22.13.4",
     "@vitejs/plugin-legacy": "^6.0.1",
     "@vitest/coverage-v8": "^3.0.6",
+    "buffer": "^6.0.0",
+    "parcel": "^2.0.0",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "vite": "^6.1.0",

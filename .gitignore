@@ -30,6 +30,9 @@ components
 # Gulp
 gulp.1
 
+# Parcel
+.parcel-cache
+
 # For GitHub Pages (gh-pages branch)
 .publish
 publish
