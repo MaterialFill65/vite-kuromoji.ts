@@ -4,7 +4,16 @@ TypeScript implementation of Japanese morphological analyzer.
 [kuromoji.js](https://github.com/takuyaa/kuromoji.js) is a pure JavaScript porting of [Kuromoji](https://www.atilika.com/ja/kuromoji/).
 This is a pure TypeScript porting of [kuromoji.js](https://github.com/takuyaa/kuromoji.js)
 
-You can see how vite-kuromoji.ts works in [demo site](https://materialfill65.github.io/vite-kuromoji.ts/demo/tokenize.html).
+You can see how vite-kuromoji.ts works in ~~[demo site](https://materialfill65.github.io/vite-kuromoji.ts/demo/tokenize.html)~~.
+Okay. I got it. Github Pages seems to deliver .ts scripts as a video fragment. Therefore it doesn't work.
+You can see how vite-kuromoji.ts works by running following commands.
+```sh
+git clone https://github.com/materialfill65/vite-kuromoji.ts
+cd vite-kuromoji.ts
+pnpm i
+pnpm run vite dev
+```
+Then open http://localhost:5173/demo/tokenize.html 
 
 Key Feature
 -----------
@@ -36,7 +45,7 @@ If you need working examples, you can see the files under the demo or example di
 ### Node.js
 Install with npm package manager:
 ```sh
-npm install git+https://github.com/materialfill65/vite-kuromoji.ts.git
+npm install git+
 ```
 Install with pnpm package manager:
 ```sh
