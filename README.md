@@ -1,10 +1,17 @@
 vite-kuromoji.ts
 ===========
 TypeScript implementation of Japanese morphological analyzer.
-The [kuromoji.js](https://github.com/takuyaa/kuromoji.js) is a pure JavaScript porting of [Kuromoji](https://www.atilika.com/ja/kuromoji/).
+[kuromoji.js](https://github.com/takuyaa/kuromoji.js) is a pure JavaScript porting of [Kuromoji](https://www.atilika.com/ja/kuromoji/).
 This is a pure TypeScript porting of [kuromoji.js](https://github.com/takuyaa/kuromoji.js)
 
 You can see how vite-kuromoji.ts works in [demo site](https://materialfill65.github.io/vite-kuromoji.ts/demo/tokenize.html).
+
+Key Feature
+-----------
+- Written in Typescript
+- UniDic(SudachiDict) compatibility
+- Blazing fast dictionary building (only Deno avaliable)
+- Cross platform compatibility (Node.js, Deno, Bun, Browser)
 
 Directory
 ---------
