@@ -1,45 +1,10 @@
 {
-  "name": "kuromoji",
-  "description": "JavaScript implementation of Japanese morphological analyzer",
+  "name": "vite-kuromoji.ts",
+  "description": "TypeScript implementation of Japanese morphological analyzer",
+  "type": "module",
   "version": "0.1.2",
   "author": "Takuya Asano <takuya.a@gmail.com>",
-  "browser": {
-    "./src/loader/NodeDictionaryLoader.js": "./src/loader/BrowserDictionaryLoader.js"
-  },
-  "bugs": {
-    "url": "https://github.com/takuyaa/kuromoji.js/issues"
-  },
-  "dependencies": {
-    "async": "^2.0.1",
-    "doublearray": "0.0.2",
-    "zlibjs": "^0.3.1"
-  },
-  "devDependencies": {
-    "browserify": "^16.1.1",
-    "chai": "^4.1.2",
-    "coveralls": "^3.0.0",
-    "del": "^3.0.0",
-    "event-stream": "^3.3.4",
-    "gulp": "^3.8.10",
-    "gulp-bower": "0.0.14",
-    "gulp-bump": "^3.1.0",
-    "gulp-conventional-changelog": "^1.1.0",
-    "gulp-gh-pages-will": "^0.5.5",
-    "gulp-git": "^2.5.2",
-    "gulp-gzip": "^1.2.0",
-    "gulp-istanbul": "^1.0.0",
-    "gulp-jsdoc3": "^1.0.1",
-    "gulp-jshint": "^2.1.0",
-    "gulp-mocha": "^5.0.0",
-    "gulp-webserver": "^0.9.1",
-    "jshint": "^2.9.5",
-    "mecab-ipadic-seed": "0.0.2",
-    "minimist": "^1.2.0",
-    "mocha-lcov-reporter": "^1.2.0",
-    "run-sequence": "^2.2.1",
-    "vinyl-source-stream": "^2.0.0"
-  },
-  "homepage": "https://github.com/takuyaa/kuromoji.js",
+  "main": "./src/kuromoji.js",
   "keywords": [
     "japanese",
     "morphological analyzer",
@@ -49,24 +14,29 @@
     "tokenizer"
   ],
   "license": "Apache-2.0",
-  "main": "./src/kuromoji.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/takuyaa/kuromoji.js.git"
-  },
   "scripts": {
-    "build": "gulp build",
-    "build-demo": "gulp build-demo",
-    "build-dict": "gulp build-dict",
-    "clean": "gulp clean",
-    "coverage": "gulp coverage",
-    "deploy": "gulp deploy",
-    "jsdoc": "gulp jsdoc",
-    "lint": "gulp lint",
-    "release": "gulp release",
-    "test": "gulp test",
-    "version": "gulp version",
-    "watch": "gulp watch",
-    "webserver": "gulp webserver"
+    "build": "vite build",
+    "build-dict": "vite build --mode dict",
+    "coverage": "vitest run --coverage",
+    "lint": "biome check ./src",
+    "test": "vitest",
+    "watch": "vite build --watch",
+    "example:deno": "deno run -A --unstable-sloppy-imports ./example/load-deno.js",
+    "example:node": "tsx ./example/load-node.js",
+    "example:bun": ""
+  },
+  "module": "./build/kuromoji.js",
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@types/bun": "^1.2.2",
+    "@types/deno": "^2.2.0",
+    "@types/node": "^22.13.4",
+    "@vitejs/plugin-legacy": "^6.0.1",
+    "@vitest/coverage-v8": "^3.0.6",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "vite-plugin-checker": "^0.8.0",
+    "vitest": "^3.0.6"
   }
 }
