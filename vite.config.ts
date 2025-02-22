@@ -20,9 +20,8 @@ export default defineConfig({
     ],
     build: {
         outDir,
-        sourcemap: 'inline',
+        sourcemap: false,
         minify: true,
-        reportCompressedSize: true,
         rollupOptions: {
             watch: {
                 include: ["src/**", "vite.config.ts"],
