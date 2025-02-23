@@ -1,8 +1,18 @@
-import { type DoubleArray, builder, load } from "../util/DoubleArray";
+import { Matcher } from "../fst/FST";
+import { builder, load } from "../util/DoubleArray";
 import ConnectionCosts from "./ConnectionCosts";
-import type InvokeDefinitionMap from "./InvokeDefinitionMap";
 import TokenInfoDictionary from "./TokenInfoDictionary";
 import UnknownDictionary from "./UnknownDictionary";
+
+interface KeyValue {
+	k: string | Uint8Array;
+	v: number;
+}
+
+export interface WordSearch {
+	commonPrefixSearch(word: string): KeyValue[];
+	lookup(key: string): number
+}
 
 /**
  * Dictionaries container for Tokenizer
@@ -13,21 +23,21 @@ import UnknownDictionary from "./UnknownDictionary";
  * @constructor
  */
 class DynamicDictionaries {
-	trie: DoubleArray;
+	word: WordSearch;
 	token_info_dictionary: TokenInfoDictionary;
 	connection_costs: ConnectionCosts;
 	unknown_dictionary: UnknownDictionary;
 
 	constructor(
-		trie?: DoubleArray,
+		word?: WordSearch,
 		token_info_dictionary?: TokenInfoDictionary,
 		connection_costs?: ConnectionCosts,
 		unknown_dictionary?: UnknownDictionary,
 	) {
-		if (trie != null) {
-			this.trie = trie;
+		if (word != null) {
+			this.word = word;
 		} else {
-			this.trie = builder(0).build([{ k: "", v: 1 }]);
+			this.word = builder(0).build([{ k: "", v: 1 }]);
 		}
 		if (token_info_dictionary != null) {
 			this.token_info_dictionary = token_info_dictionary;
@@ -63,7 +73,12 @@ class DynamicDictionaries {
 			| Uint16Array<ArrayBufferLike>
 			| Uint32Array<ArrayBufferLike>,
 	) {
-		this.trie = load(base_buffer, check_buffer);
+		this.word = load(base_buffer, check_buffer);
+		return this;
+	}
+	// from base.dat
+	loadFST(base_buffer: Uint8Array) {
+		this.word = new Matcher(base_buffer);
 		return this;
 	}
 	loadTokenInfoDictionaries(

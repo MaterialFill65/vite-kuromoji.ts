@@ -20,13 +20,13 @@ import DictionaryLoader from "../../src/loader/DictionaryLoader";
 import ViterbiBuilder from "../../src/viterbi/ViterbiBuilder";
 
 const IPADIC_DIR = "dict/ipadic/";
-const UNIDIC_DIR = "dict/ipadic/";
+const UNIDIC_DIR = "dict/unidic/";
 
 describe("ViterbiBuilder",async () => {
     
     const loader = new DictionaryLoader(IPADIC_DIR);
-    await loader.load();
-    const viterbi_builder: ViterbiBuilder = new ViterbiBuilder(loader.dic);
+    const dic = await loader.load();
+    const viterbi_builder: ViterbiBuilder = new ViterbiBuilder(dic);
 
     it("IPADIC Unknown word", () => {
         // lattice to have "ト", "トト", "トトロ"
@@ -40,8 +40,8 @@ describe("ViterbiBuilder",async () => {
         }
     });
     const loader2 = new DictionaryLoader(UNIDIC_DIR);
-    await loader2.load();
-    const viterbi_builder2: ViterbiBuilder = new ViterbiBuilder(loader2.dic);
+    const dic2 =await loader2.load();
+    const viterbi_builder2: ViterbiBuilder = new ViterbiBuilder(dic2);
     it("UNIDIC Unknown word", () => {
         // lattice to have "ト", "トト", "トトロ"
         const lattice = viterbi_builder2?.build("トトロ");

@@ -1,4 +1,6 @@
+import { Matcher } from "./src/fst/FST";
 import kuromoji from "./src/kuromoji";
+import { DoubleArray } from "./src/util/DoubleArray";
 
 type Arrays =
     | Int8Array
@@ -45,18 +47,6 @@ class TextLineStream extends TransformStream<string, string> {
         });
     }
 }
-
-class CsvStream extends TransformStream<string, string[]> {
-    constructor() {
-        super({
-            transform(text, controller) {
-                const split = text.split(",");
-                controller.enqueue(split);
-            }
-        });
-    }
-}
-
 // Build token info dictionary
 const builder = kuromoji.dictionaryBuilder();
 
@@ -64,7 +54,7 @@ const promises = [
     ...tid_dic_files.map(tid_dic_file => 
         new Promise<void>(async (resolve, reject) => {
             const { readable } = await Deno.open(tid_dic_file);
-            const writableStream = new WritableStream<string[]>(
+            const writableStream = new WritableStream<string>(
                 {
                     write(chunk) {
                         builder.addTokenInfoDictionary(chunk);
@@ -81,7 +71,6 @@ const promises = [
             readable
                 .pipeThrough(new TextDecoderStream())
                 .pipeThrough(new TextLineStream())
-                .pipeThrough(new CsvStream())
                 .pipeTo(writableStream)
         })
     ),
@@ -129,7 +118,7 @@ const promises = [
     }),
     new Promise<void>(async (resolve, reject) => {
         const { readable } = await Deno.open(unk_def_file);
-        const writableStream = new WritableStream<string[]>(
+        const writableStream = new WritableStream<string>(
             {
                 write(chunk) {
                     builder.putUnkDefLine(chunk);
@@ -146,22 +135,22 @@ const promises = [
         readable
             .pipeThrough(new TextDecoderStream())
             .pipeThrough(new TextLineStream())
-            .pipeThrough(new CsvStream())
             .pipeTo(writableStream)
     }),
 ]
 
 await Promise.all(promises)
-const dic = builder.build();
+const dic = builder.build(false);
 async function writeCompressedFile(path: string, data: Arrays) {
     const cs = new CompressionStream('gzip');
     const compressed = new Response(data).body?.pipeThrough(cs);
     const result = await new Response(compressed).arrayBuffer();
     await Deno.writeFile(`${path}.gz`, new Uint8Array(result));
+    console.log("Saved file:", `${path}.gz`)
 }
 
-writeCompressedFile(`dict/${type}/base.dat`, dic.trie.bc.getBaseBuffer());
-writeCompressedFile(`dict/${type}/check.dat`, dic.trie.bc.getCheckBuffer());
+// writeCompressedFile(`dict/${type}/base.dat`, (dic.word as DoubleArray).bc.getBaseBuffer());
+// writeCompressedFile(`dict/${type}/check.dat`, (dic.word as DoubleArray).bc.getCheckBuffer());
 writeCompressedFile(`dict/${type}/tid.dat`, dic.token_info_dictionary.dictionary.buffer);
 writeCompressedFile(`dict/${type}/tid_pos.dat`, dic.token_info_dictionary.pos_buffer.buffer);
 writeCompressedFile(`dict/${type}/tid_map.dat`, dic.token_info_dictionary.targetMapToBuffer());
@@ -172,3 +161,5 @@ writeCompressedFile(`dict/${type}/unk_map.dat`, dic.unknown_dictionary.targetMap
 writeCompressedFile(`dict/${type}/unk_char.dat`, dic.unknown_dictionary.character_definition!.character_category_map);
 writeCompressedFile(`dict/${type}/unk_compat.dat`, dic.unknown_dictionary.character_definition!.compatible_category_map);
 writeCompressedFile(`dict/${type}/unk_invoke.dat`, dic.unknown_dictionary.character_definition!.invoke_definition_map!.toBuffer());
+
+writeCompressedFile(`dict/${type}/fst.dat`, (dic.word as Matcher).getBuffer());

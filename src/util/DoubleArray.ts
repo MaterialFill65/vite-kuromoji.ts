@@ -1,5 +1,7 @@
 // Copyright (c) 2014 Takuya Asano All Rights Reserved.
 
+import type { WordSearch } from "../dict/DynamicDictionaries";
+
 const TERM_CHAR = "\u0000"; // terminal character
 const TERM_CODE = 0; // terminal character code
 const ROOT_ID = 0; // index of root node
@@ -216,7 +218,7 @@ const newBC = (initial_size = 1024): BaseAndCheck => {
 /**
  * Factory method of double array
  */
-class DoubleArrayBuilder {
+export default class DoubleArrayBuilder {
 	bc: BaseAndCheck;
 	keys: KeyValue[];
 	constructor(initial_size: number | undefined) {
@@ -459,7 +461,7 @@ class DoubleArrayBuilder {
 /**
  * Factory method of double array
  */
-export class DoubleArray {
+export class DoubleArray implements WordSearch {
 	bc: BaseAndCheck;
 	constructor(bc: BaseAndCheck) {
 		this.bc = bc; // BASE and CHECK

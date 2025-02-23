@@ -78,7 +78,7 @@ describe("DictionaryBuilder", () => {
             expect(kuromoji_dic?.token_info_dictionary.dictionary.buffer).to.have.length.above(1);
         });
         it("DoubleArray not to be null", () => {
-            expect(kuromoji_dic?.trie).not.to.be.null;
+            expect(kuromoji_dic?.word).not.to.be.null;
         });
         it("ConnectionCosts not to be null", () => {
             expect(kuromoji_dic?.connection_costs).not.to.be.null;
@@ -230,7 +230,7 @@ describe("DictionaryBuilder", () => {
 
             kuromoji_dic = builder.build();
         },
-    100000000000)
+    10000)
 
 
         it("Dictionary not to be null", () => {
@@ -244,7 +244,7 @@ describe("DictionaryBuilder", () => {
             expect(kuromoji_dic?.token_info_dictionary.dictionary.buffer).to.have.length.above(1);
         });
         it("DoubleArray not to be null", () => {
-            expect(kuromoji_dic?.trie).not.to.be.null;
+            expect(kuromoji_dic?.word).not.to.be.null;
         });
         it("ConnectionCosts not to be null", () => {
             expect(kuromoji_dic?.connection_costs).not.to.be.null;

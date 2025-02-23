@@ -34,9 +34,6 @@
     "@biomejs/biome": "1.9.4",
     "@parcel/packager-ts": "2.13.3",
     "@parcel/transformer-typescript-types": "2.13.3",
-    "@types/bun": "^1.2.2",
-    "@types/deno": "^2.2.0",
-    "@types/node": "^22.13.4",
     "@vitejs/plugin-legacy": "^6.0.1",
     "@vitest/coverage-v8": "^3.0.6",
     "buffer": "^6.0.0",
@@ -46,5 +43,19 @@
     "vite": "^6.1.0",
     "vite-plugin-checker": "^0.8.0",
     "vitest": "^3.0.6"
+  },
+  "dependencies": {
+    "vite-kuromoji.ts": "git+https://github.com/materialfill65/vite-kuromoji.ts.git"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@biomejs/biome",
+      "@parcel/watcher",
+      "@swc/core",
+      "core-js",
+      "esbuild",
+      "lmdb",
+      "msgpackr-extract"
+    ]
   }
 }

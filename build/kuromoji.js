@@ -182,11 +182,11 @@ var $6f4076c3f0249525$export$2e2bcd8739ae039 = $6f4076c3f0249525$var$ViterbiLatt
  * @param {DynamicDictionaries} dic dictionary
  * @constructor
  */ class $a5dea0986113324f$var$ViterbiBuilder {
-    trie;
+    word;
     token_info_dictionary;
     unknown_dictionary;
     constructor(dic){
-        this.trie = dic.trie;
+        this.word = dic.word;
         this.token_info_dictionary = dic.token_info_dictionary;
         this.unknown_dictionary = dic.unknown_dictionary;
     }
@@ -204,7 +204,7 @@ var $6f4076c3f0249525$export$2e2bcd8739ae039 = $6f4076c3f0249525$var$ViterbiLatt
         let word_cost;
         for(let pos = 0; pos < sentence.length; pos++){
             const tail = sentence.slice(pos);
-            const vocabulary = this.trie.commonPrefixSearch(tail);
+            const vocabulary = this.word.commonPrefixSearch(tail);
             for(let n = 0; n < vocabulary.length; n++){
                 // Words in dictionary do not have surrogate pair (only UCS2 set)
                 trie_id = vocabulary[n].v;
@@ -421,6 +421,369 @@ const $1d80c1e34dd115b9$var$PUNCTUATION = /、|。/;
 var $1d80c1e34dd115b9$export$2e2bcd8739ae039 = $1d80c1e34dd115b9$var$Tokenizer;
 
 
+// Bit flags for arc representation
+const $4ead6c675ec7949c$export$281fd4b195eed79 = 1;
+const $4ead6c675ec7949c$export$95b87cd1974c309d = 2;
+const $4ead6c675ec7949c$export$cf6a49cbc8bcfc48 = 16;
+const $4ead6c675ec7949c$export$7efbea5e16f33691 = 32;
+const $4ead6c675ec7949c$var$NOT_FOUND = -1;
+class $4ead6c675ec7949c$export$7254cc27399e90bd {
+    id;
+    final;
+    transMap;
+    finalOutput;
+    constructor(id = null){
+        this.id = id;
+        this.final = false;
+        this.transMap = {};
+        this.finalOutput = new Set();
+    }
+    isFinal() {
+        return this.final;
+    }
+    setFinal(final) {
+        this.final = final;
+    }
+    transition(char) {
+        var _this_transMap_char;
+        return ((_this_transMap_char = this.transMap[char]) === null || _this_transMap_char === void 0 ? void 0 : _this_transMap_char.state) || null;
+    }
+    setTransition(char, state) {
+        var _this_transMap_char;
+        this.transMap[char] = {
+            state: state,
+            output: ((_this_transMap_char = this.transMap[char]) === null || _this_transMap_char === void 0 ? void 0 : _this_transMap_char.output) || new Uint8Array()
+        };
+    }
+    stateOutput() {
+        return this.finalOutput;
+    }
+    setStateOutput(output) {
+        this.finalOutput = new Set(Array.from(output).map((e)=>new Uint8Array(e)));
+    }
+    clearStateOutput() {
+        this.finalOutput.clear();
+    }
+    output(char) {
+        var _this_transMap_char;
+        return ((_this_transMap_char = this.transMap[char]) === null || _this_transMap_char === void 0 ? void 0 : _this_transMap_char.output) || new Uint8Array();
+    }
+    setOutput(char, out) {
+        if (this.transMap[char]) this.transMap[char].output = new Uint8Array(out);
+    }
+    clear() {
+        this.final = false;
+        this.transMap = {};
+        this.finalOutput.clear();
+    }
+}
+class $4ead6c675ec7949c$export$6f2cf46b44d412d7 {
+    dictionary;
+    constructor(){
+        this.dictionary = new Map();
+    }
+    size() {
+        return this.dictionary.size;
+    }
+    member(state) {
+        return this.dictionary.get(this.hashState(state));
+    }
+    insert(state) {
+        this.dictionary.set(this.hashState(state), state);
+    }
+    hashState(state) {
+        return JSON.stringify({
+            final: state.final,
+            transMap: state.transMap,
+            finalOutput: Array.from(state.finalOutput)
+        });
+    }
+}
+class $4ead6c675ec7949c$export$20214574ec94167d {
+    static BUF_SIZE = 1024;
+    data;
+    constructor(dictData){
+        if (dictData) this.data = dictData;
+        else throw new Error("dictData must be provided");
+    }
+    run(word) {
+        const outputs = new Set();
+        let accept = false;
+        let buf = new Uint8Array();
+        let i = 0;
+        let pos = 0;
+        while(pos < this.data.length){
+            const [arc, incr] = this.nextArc(pos);
+            if (arc.flag & $4ead6c675ec7949c$export$281fd4b195eed79) {
+                accept = i >= word.length;
+                arc.finalOutput.forEach((out)=>{
+                    const newOutput = new Uint8Array(buf.length + out.length);
+                    newOutput.set(buf);
+                    newOutput.set(out, buf.length);
+                    outputs.add(newOutput);
+                });
+                if (arc.flag & $4ead6c675ec7949c$export$95b87cd1974c309d || i >= word.length) break;
+                pos += incr;
+            } else if (arc.flag & $4ead6c675ec7949c$export$95b87cd1974c309d) {
+                if (i >= word.length) break;
+                if (word[i] === arc.label) {
+                    const newBuf = new Uint8Array(buf.length + arc.output.length);
+                    newBuf.set(buf);
+                    newBuf.set(arc.output, buf.length);
+                    buf = newBuf;
+                    i++;
+                    pos += arc.target;
+                } else break;
+            } else {
+                if (i >= word.length) break;
+                if (word[i] === arc.label) {
+                    const newBuf = new Uint8Array(buf.length + arc.output.length);
+                    newBuf.set(buf);
+                    newBuf.set(arc.output, buf.length);
+                    buf = newBuf;
+                    i++;
+                    pos += arc.target;
+                } else pos += incr;
+            }
+        }
+        return [
+            accept,
+            outputs
+        ];
+    }
+    lookup(key) {
+        const textEncoder = new TextEncoder();
+        const textDecoder = new TextDecoder();
+        const [accept, encoded_word] = this.run(textEncoder.encode(key));
+        if (!accept) return $4ead6c675ec7949c$var$NOT_FOUND;
+        let result;
+        encoded_word.forEach((e)=>{
+            result = e;
+        });
+        if (!result) return $4ead6c675ec7949c$var$NOT_FOUND;
+        return parseInt(textDecoder.decode(result));
+    }
+    commonPrefixSearch(word) {
+        const textEncoder = new TextEncoder();
+        const textDecoder = new TextDecoder();
+        const encoded_word = textEncoder.encode(word);
+        const [accepted, result] = this.run(encoded_word);
+        if (!accepted) return [];
+        return Array.from(result).map((enc_output)=>{
+            return {
+                k: word,
+                v: Number.parseInt(textDecoder.decode(enc_output))
+            };
+        });
+    }
+    nextArc(addr) {
+        const arc = {
+            flag: 0,
+            label: 0,
+            output: new Uint8Array(),
+            finalOutput: [
+                new Uint8Array()
+            ],
+            target: 0
+        };
+        let pos = addr;
+        arc.flag = new DataView(this.data.buffer).getInt8(pos);
+        pos += 1;
+        if (arc.flag & $4ead6c675ec7949c$export$281fd4b195eed79) {
+            if (arc.flag & $4ead6c675ec7949c$export$7efbea5e16f33691) {
+                const finalOutputSize = new DataView(this.data.buffer).getInt32(pos);
+                pos += 4;
+                const finalOutput = this.data.slice(pos, pos + finalOutputSize);
+                arc.finalOutput = this.splitOutput(finalOutput);
+                pos += finalOutputSize;
+            }
+        } else {
+            arc.label = this.data[pos];
+            pos += 1;
+            if (arc.flag & $4ead6c675ec7949c$export$cf6a49cbc8bcfc48) {
+                const outputSize = new DataView(this.data.buffer).getInt32(pos);
+                pos += 4;
+                arc.output = this.data.slice(pos, pos + outputSize);
+                pos += outputSize;
+            }
+            arc.target = new DataView(this.data.buffer).getInt32(pos);
+            pos += 4;
+        }
+        return [
+            arc,
+            pos - addr
+        ];
+    }
+    splitOutput(output) {
+        const separator = 0x1a; // ASCII SUB character
+        const result = [];
+        let start = 0;
+        for(let i = 0; i < output.length; i++)if (output[i] === separator) {
+            result.push(output.slice(start, i));
+            start = i + 1;
+        }
+        if (start < output.length) result.push(output.slice(start));
+        return result;
+    }
+    getBuffer() {
+        return this.data;
+    }
+}
+function $4ead6c675ec7949c$export$fcbc0da9b398f525(fst) {
+    const arcs = [];
+    const address = {};
+    let pos = 0;
+    for (const s of Array.from(fst.dictionary.values())){
+        const sortedTrans = Object.entries(s.transMap).sort((a, b)=>Number(b[0]) - Number(a[0]));
+        for(let i = 0; i < sortedTrans.length; i++){
+            const [c, v] = sortedTrans[i];
+            const buffer = new ArrayBuffer(1024);
+            const view = new DataView(buffer);
+            let offset = 0;
+            let flag = 0;
+            if (i === 0) flag |= $4ead6c675ec7949c$export$95b87cd1974c309d;
+            if (v.output.length > 0) flag |= $4ead6c675ec7949c$export$cf6a49cbc8bcfc48;
+            view.setInt8(offset++, flag);
+            view.setUint8(offset++, Number(c));
+            if (v.output.length > 0) {
+                view.setInt32(offset, v.output.length);
+                offset += 4;
+                new Uint8Array(buffer, offset).set(v.output);
+                offset += v.output.length;
+            }
+            const nextAddr = address[v.state.id];
+            const target = pos + offset + 4 - nextAddr;
+            view.setInt32(offset, target);
+            offset += 4;
+            arcs.push(new Uint8Array(buffer.slice(0, offset)));
+            pos += offset;
+        }
+        if (s.isFinal()) {
+            const buffer = new ArrayBuffer(1024);
+            const view = new DataView(buffer);
+            let offset = 0;
+            let flag = $4ead6c675ec7949c$export$281fd4b195eed79;
+            const finalOutputs = Array.from(s.finalOutput);
+            const hasOutput = finalOutputs.some((out)=>out.length > 0);
+            if (hasOutput) flag |= $4ead6c675ec7949c$export$7efbea5e16f33691;
+            if (!Object.keys(s.transMap).length) flag |= $4ead6c675ec7949c$export$95b87cd1974c309d;
+            view.setInt8(offset++, flag);
+            if (hasOutput) {
+                const separator = new Uint8Array([
+                    0x1a
+                ]);
+                const totalLength = finalOutputs.reduce((sum, curr)=>sum + curr.length, 0) + (finalOutputs.length - 1);
+                view.setInt32(offset, totalLength);
+                offset += 4;
+                for(let i = 0; i < finalOutputs.length; i++){
+                    new Uint8Array(buffer, offset).set(finalOutputs[i]);
+                    offset += finalOutputs[i].length;
+                    if (i < finalOutputs.length - 1) {
+                        new Uint8Array(buffer, offset).set(separator);
+                        offset += 1;
+                    }
+                }
+            }
+            arcs.push(new Uint8Array(buffer.slice(0, offset)));
+            pos += offset;
+        }
+        address[s.id] = pos;
+    }
+    arcs.reverse();
+    const totalLength = arcs.reduce((sum, arr)=>sum + arr.length, 0);
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const arc of arcs){
+        result.set(arc, offset);
+        offset += arc.length;
+    }
+    return result;
+}
+
+
+
+class $b15954558ed9603e$export$8764c37c2a3aea76 {
+    states;
+    dictionary;
+    constructor(){
+        this.states = [];
+        this.dictionary = new (0, $4ead6c675ec7949c$export$6f2cf46b44d412d7)();
+    }
+    /**
+	 * 新しい状態を作成します
+	 */ newState() {
+        const state = new (0, $4ead6c675ec7949c$export$7254cc27399e90bd)(this.states.length);
+        this.states.push(state);
+        return state;
+    }
+    /**
+	 * 単語と出力をFSTに追加します
+	 */ add(word, output) {
+        let current = this.getRoot();
+        const wordLength = word.length;
+        let next;
+        for(let i = 0; i < wordLength; i++){
+            next = current.transition(word[i]);
+            if (!next) {
+                next = this.newState();
+                current.setTransition(word[i], next);
+            }
+            current = next;
+        }
+        current.setFinal(true);
+        current.stateOutput().add(output);
+    }
+    append(key, record) {
+        const textEncoder = new TextEncoder();
+        this.add(textEncoder.encode(key), textEncoder.encode(record.toString()));
+        return this;
+    }
+    /**
+	 * 文字列と出力のペアを一括で追加します
+	 */ addAll(entries) {
+        for (const [word, output] of entries)this.add(word, output);
+    }
+    /**
+	 * ルート状態を取得します
+	 */ getRoot() {
+        if (this.states.length === 0) return this.newState();
+        return this.states[0];
+    }
+    /**
+	 * FSTを最適化して構築します
+	 */ build(keys) {
+        // Convert key string to ArrayBuffer
+        const textEncoder = new TextEncoder();
+        const buff_keys = keys.map((k)=>{
+            return [
+                textEncoder.encode(k.k),
+                textEncoder.encode(k.v.toString())
+            ];
+        });
+        this.addAll(buff_keys);
+        // 末尾の状態から順番に同値な状態を統合
+        for(let i = this.states.length - 1; i >= 0; i--){
+            const state = this.states[i];
+            const equivalent = this.dictionary.member(state);
+            if (equivalent) // 同値な状態が存在する場合、それに置き換える
+            this.replaceState(i, equivalent);
+            else // 新しい状態として登録
+            this.dictionary.insert(state);
+        }
+        return this.dictionary;
+    }
+    /**
+	 * 状態を置き換えます
+	 */ replaceState(index, replacement) {
+        // index以前の状態について、遷移先を置き換える
+        for(let i = 0; i < index; i++){
+            const state = this.states[i];
+            for (const [char, trans] of Object.entries(state.transMap))if (trans.state === this.states[index]) state.setTransition(Number(char), replacement);
+        }
+    }
+}
+
+
 // Copyright (c) 2014 Takuya Asano All Rights Reserved.
 const $60f4f4059ac4d094$var$TERM_CHAR = "\u0000"; // terminal character
 const $60f4f4059ac4d094$var$TERM_CODE = 0; // terminal character code
@@ -555,9 +918,7 @@ const $60f4f4059ac4d094$var$newBC = (initial_size = 1024)=>{
         }
     };
 };
-/**
- * Factory method of double array
- */ class $60f4f4059ac4d094$var$DoubleArrayBuilder {
+class $60f4f4059ac4d094$export$2e2bcd8739ae039 {
     bc;
     keys;
     constructor(initial_size){
@@ -962,7 +1323,7 @@ const $60f4f4059ac4d094$var$arrayCopy = (src, src_offset, length)=>{
     return str;
 };
 function $60f4f4059ac4d094$export$933032be53f7ca16(initial_size) {
-    return new $60f4f4059ac4d094$var$DoubleArrayBuilder(initial_size);
+    return new $60f4f4059ac4d094$export$2e2bcd8739ae039(initial_size);
 }
 function $60f4f4059ac4d094$export$11e63f7b0f3d9900(base_buffer, check_buffer) {
     const bc = $60f4f4059ac4d094$var$newBC(0);
@@ -970,6 +1331,8 @@ function $60f4f4059ac4d094$export$11e63f7b0f3d9900(base_buffer, check_buffer) {
     bc.loadCheckBuffer(check_buffer);
     return new $60f4f4059ac4d094$export$d1d3971fdcedc28d(bc);
 }
+
+
 
 
 /**
@@ -1241,7 +1604,6 @@ var $d43a57de518ca883$export$2e2bcd8739ae039 = $d43a57de518ca883$var$ByteBuffer;
             const left_id = Number(entry[1]);
             const right_id = Number(entry[2]);
             const word_cost = Number(entry[3]);
-            // TODO: Is it OK?
             const feature = entry.slice(4).join(","); // TODO Optimize
             // Assertion
             if (!Number.isFinite(left_id) || !Number.isFinite(right_id) || !Number.isFinite(word_cost)) console.log(entry);
@@ -1615,13 +1977,13 @@ var $01d4a28b5b1ce081$export$2e2bcd8739ae039 = $01d4a28b5b1ce081$var$UnknownDict
  * @param {UnknownDictionary} unknown_dictionary
  * @constructor
  */ class $0848a9c02181f40d$var$DynamicDictionaries {
-    trie;
+    word;
     token_info_dictionary;
     connection_costs;
     unknown_dictionary;
-    constructor(trie, token_info_dictionary, connection_costs, unknown_dictionary){
-        if (trie != null) this.trie = trie;
-        else this.trie = (0, $60f4f4059ac4d094$export$933032be53f7ca16)(0).build([
+    constructor(word, token_info_dictionary, connection_costs, unknown_dictionary){
+        if (word != null) this.word = word;
+        else this.word = (0, $60f4f4059ac4d094$export$933032be53f7ca16)(0).build([
             {
                 k: "",
                 v: 1
@@ -1637,7 +1999,12 @@ var $01d4a28b5b1ce081$export$2e2bcd8739ae039 = $01d4a28b5b1ce081$var$UnknownDict
     }
     // from base.dat & check.dat
     loadTrie(base_buffer, check_buffer) {
-        this.trie = (0, $60f4f4059ac4d094$export$11e63f7b0f3d9900)(base_buffer, check_buffer);
+        this.word = (0, $60f4f4059ac4d094$export$11e63f7b0f3d9900)(base_buffer, check_buffer);
+        return this;
+    }
+    // from base.dat
+    loadFST(base_buffer) {
+        this.word = new (0, $4ead6c675ec7949c$export$20214574ec94167d)(base_buffer);
         return this;
     }
     loadTokenInfoDictionaries(token_info_buffer, pos_buffer, target_map_buffer) {
@@ -1658,16 +2025,234 @@ var $01d4a28b5b1ce081$export$2e2bcd8739ae039 = $01d4a28b5b1ce081$var$UnknownDict
 var $0848a9c02181f40d$export$2e2bcd8739ae039 = $0848a9c02181f40d$var$DynamicDictionaries;
 
 
-var // Pollyfill of DecompressionStream for Bun
-$ed082760b2618cdb$var$_globalThis;
+
+
+
+
+const $1f68d5c6b2004367$var$CATEGORY_DEF_PATTERN = /^(\w+)\s+(\d)\s+(\d)\s+(\d)/;
+const $1f68d5c6b2004367$var$CATEGORY_MAPPING_PATTERN = /^(0x[0-9A-F]{4})(?:\s+([^#\s]+))(?:\s+([^#\s]+))*/;
+const $1f68d5c6b2004367$var$RANGE_CATEGORY_MAPPING_PATTERN = /^(0x[0-9A-F]{4})\.\.(0x[0-9A-F]{4})(?:\s+([^#\s]+))(?:\s+([^#\s]+))*/;
+/**
+ * CharacterDefinitionBuilder
+ * @constructor
+ */ class $1f68d5c6b2004367$var$CharacterDefinitionBuilder {
+    char_def;
+    character_category_definition;
+    category_mapping;
+    constructor(){
+        this.char_def = new (0, $46c43562c300c48f$export$2e2bcd8739ae039)();
+        this.char_def.invoke_definition_map = new (0, $48f30eff22694b93$export$2e2bcd8739ae039)();
+        this.character_category_definition = [];
+        this.category_mapping = [];
+    }
+    putLine(line) {
+        const parsed_category_def = $1f68d5c6b2004367$var$CATEGORY_DEF_PATTERN.exec(line);
+        if (parsed_category_def != null) {
+            const class_id = this.character_category_definition.length;
+            const char_class = (0, $46c43562c300c48f$export$2e2bcd8739ae039).parseCharCategory(class_id, parsed_category_def);
+            if (char_class == null) return;
+            this.character_category_definition.push(char_class);
+            return;
+        }
+        const parsed_category_mapping = $1f68d5c6b2004367$var$CATEGORY_MAPPING_PATTERN.exec(line);
+        if (parsed_category_mapping != null) {
+            const mapping = (0, $46c43562c300c48f$export$2e2bcd8739ae039).parseCategoryMapping(parsed_category_mapping);
+            this.category_mapping.push(mapping);
+        }
+        const parsed_range_category_mapping = $1f68d5c6b2004367$var$RANGE_CATEGORY_MAPPING_PATTERN.exec(line);
+        if (parsed_range_category_mapping != null) {
+            const range_mapping = (0, $46c43562c300c48f$export$2e2bcd8739ae039).parseRangeCategoryMapping(parsed_range_category_mapping);
+            this.category_mapping.push(range_mapping);
+        }
+    }
+    build() {
+        // TODO If DEFAULT category does not exist, throw error
+        if (!this.char_def.invoke_definition_map) throw new Error("invoke_definition_map is not initialized");
+        this.char_def.invoke_definition_map.init(this.character_category_definition);
+        this.char_def.initCategoryMappings(this.category_mapping);
+        return this.char_def;
+    }
+}
+var $1f68d5c6b2004367$export$2e2bcd8739ae039 = $1f68d5c6b2004367$var$CharacterDefinitionBuilder;
+
+
+
+/**
+ * Builder class for constructing ConnectionCosts object
+ * @constructor
+ */ class $3089003cac8608b4$var$ConnectionCostsBuilder {
+    lines;
+    connection_cost;
+    constructor(){
+        this.lines = 0;
+    }
+    putLine(line) {
+        var _this_connection_cost, _this_connection_cost1, _this_connection_cost2;
+        if (this.lines === 0) {
+            const dimensions = line.split(" ");
+            const forward_dimension = Number.parseInt(dimensions[0]);
+            const backward_dimension = Number.parseInt(dimensions[1]);
+            if (forward_dimension < 0 || backward_dimension < 0) throw "Parse error of matrix.def";
+            this.connection_cost = new (0, $a8d092bebaac30aa$export$2e2bcd8739ae039)(forward_dimension, backward_dimension);
+            this.lines++;
+            return this;
+        }
+        const costs = line.split(" ");
+        if (costs.length !== 3) return this;
+        const forward_id = Number.parseInt(costs[0]);
+        const backward_id = Number.parseInt(costs[1]);
+        const cost = Number.parseInt(costs[2]);
+        if (forward_id < 0 || backward_id < 0 || !Number.isFinite(forward_id) || !Number.isFinite(backward_id) || ((_this_connection_cost = this.connection_cost) === null || _this_connection_cost === void 0 ? void 0 : _this_connection_cost.forward_dimension) <= forward_id || ((_this_connection_cost1 = this.connection_cost) === null || _this_connection_cost1 === void 0 ? void 0 : _this_connection_cost1.backward_dimension) <= backward_id) throw "Parse error of matrix.def";
+        (_this_connection_cost2 = this.connection_cost) === null || _this_connection_cost2 === void 0 ? void 0 : _this_connection_cost2.put(forward_id, backward_id, cost);
+        this.lines++;
+        return this;
+    }
+    build() {
+        if (!this.connection_cost) throw new Error("ConnectionCosts is not initialized");
+        return this.connection_cost;
+    }
+}
+var $3089003cac8608b4$export$2e2bcd8739ae039 = $3089003cac8608b4$var$ConnectionCostsBuilder;
+
+
+/**
+ * Build dictionaries (token info, connection costs)
+ *
+ * Generates from matrix.def
+ * cc.dat: Connection costs
+ *
+ * Generates from *.csv
+ * dat.dat: Double array
+ * tid.dat: Token info dictionary
+ * tid_map.dat: targetMap
+ * tid_pos.dat: posList (part of speech)
+ */ class $0763a7dff3591e94$var$DictionaryBuilder {
+    tid;
+    unk;
+    cc_builder;
+    cd_builder;
+    unk_dictionary_entries = {};
+    tid_dictionary_entries = {};
+    fst_builder = new (0, $b15954558ed9603e$export$8764c37c2a3aea76)();
+    trie_builder = new (0, $60f4f4059ac4d094$export$2e2bcd8739ae039)(1048576);
+    trie_id = 0;
+    constructor(){
+        // Array of entries, each entry in Mecab form
+        // (0: surface form, 1: left id, 2: right id, 3: word cost, 4: part of speech id, 5-: other features)
+        this.tid = new (0, $b0b6d5d6e9241a5d$export$2e2bcd8739ae039)();
+        this.unk = new (0, $01d4a28b5b1ce081$export$2e2bcd8739ae039)();
+        this.cc_builder = new (0, $3089003cac8608b4$export$2e2bcd8739ae039)();
+        this.cd_builder = new (0, $1f68d5c6b2004367$export$2e2bcd8739ae039)();
+    }
+    addTokenInfoDictionary(new_entry) {
+        const entry = new_entry.split(",");
+        if (entry.length < 4) return;
+        const surface_form = entry[0];
+        const left_id = Number(entry[1]);
+        const right_id = Number(entry[2]);
+        const word_cost = Number(entry[3]);
+        const feature = entry.slice(4).join(","); // TODO Optimize
+        // Assertion
+        if (!Number.isFinite(left_id) || !Number.isFinite(right_id) || !Number.isFinite(word_cost)) console.log(entry);
+        const token_info_id = this.tid.put(left_id, right_id, word_cost, surface_form, feature);
+        this.tid_dictionary_entries[token_info_id] = surface_form;
+        const id = this.trie_id++;
+        this.fst_builder.append(surface_form, id);
+    // this.trie_builder.append(surface_form, id);
+    }
+    /**
+	 * Put one line of "matrix.def" file for building ConnectionCosts object
+	 * @param {string} line is a line of "matrix.def"
+	 */ putCostMatrixLine(line) {
+        this.cc_builder.putLine(line);
+        return this;
+    }
+    putCharDefLine(line) {
+        this.cd_builder.putLine(line);
+        return this;
+    }
+    /**
+	 * Put one line of "unk.def" file for building UnknownDictionary object
+	 * @param {string[]} new_entry is a line of "unk.def"
+	 */ putUnkDefLine(new_entry) {
+        const entry = new_entry.split(",");
+        if (entry.length < 4) return;
+        const surface_form = entry[0];
+        const left_id = Number(entry[1]);
+        const right_id = Number(entry[2]);
+        const word_cost = Number(entry[3]);
+        const feature = entry.slice(4).join(","); // TODO Optimize
+        // Assertion
+        if (!Number.isFinite(left_id) || !Number.isFinite(right_id) || !Number.isFinite(word_cost)) console.log(entry);
+        const token_info_id = this.unk.put(left_id, right_id, word_cost, surface_form, feature);
+        this.unk_dictionary_entries[token_info_id] = surface_form;
+    }
+    build(isTrie = true) {
+        const dictionaries = this.buildTokenInfoDictionary(isTrie);
+        const unknown_dictionary = this.buildUnknownDictionary();
+        return new (0, $0848a9c02181f40d$export$2e2bcd8739ae039)(dictionaries.word, dictionaries.token_info_dictionary, this.cc_builder.build(), unknown_dictionary);
+    }
+    /**
+	 * Build TokenInfoDictionary
+	 *
+	 * @returns {{trie: WordSearch, token_info_dictionary: TokenInfoDictionary}}
+	 */ buildTokenInfoDictionary(isTrie) {
+        const word = isTrie ? this.buildDoubleArray() : this.buildFST();
+        for(const token_info_id in this.tid_dictionary_entries){
+            const surface_form = this.tid_dictionary_entries[token_info_id];
+            const trie_id = word.lookup(surface_form);
+            // Assertion
+            // if (trie_id < 0) {
+            //     console.log("Not Found:" + surface_form);
+            // }
+            this.tid.addMapping(trie_id, token_info_id);
+        }
+        return {
+            word: word,
+            token_info_dictionary: this.tid
+        };
+    }
+    buildUnknownDictionary() {
+        const char_def = this.cd_builder.build(); // Create CharacterDefinition
+        if (!char_def.invoke_definition_map) throw new Error("invoke_definition_map is not initialized");
+        this.unk.characterDefinition(char_def);
+        for(const token_info_id in this.unk_dictionary_entries){
+            const class_name = this.unk_dictionary_entries[token_info_id];
+            const class_id = char_def.invoke_definition_map.lookup(class_name);
+            // Assertion
+            // if (trie_id < 0) {
+            //     console.log("Not Found:" + surface_form);
+            // }
+            this.unk.addMapping(class_id, token_info_id);
+        }
+        return this.unk;
+    }
+    buildFST() {
+        const fst = this.fst_builder.build([]);
+        const bin = (0, $4ead6c675ec7949c$export$fcbc0da9b398f525)(fst);
+        return new (0, $4ead6c675ec7949c$export$20214574ec94167d)(bin);
+    }
+    /**
+	 * Build double array trie
+	 *
+	 * @returns {DoubleArray} Double-Array trie
+	 */ buildDoubleArray() {
+        const builder = this.trie_builder;
+        return builder.build();
+    }
+}
+var $0763a7dff3591e94$export$2e2bcd8739ae039 = $0763a7dff3591e94$var$DictionaryBuilder;
+
+
+
 /**
  * Polyfill for DecompressionStream using Bun's synchronous decompression functions.
- */ class $ed082760b2618cdb$var$BunDecompressionStream extends TransformStream {
+ */ class $e251b9065c70768d$var$BunDecompressionStream extends TransformStream {
     /**
-	 * Creates a new DecompressionStream for the given format.
-	 * @param format The compression format to use for decompression ('deflate', 'deflate-raw', or 'gzip').
-	 * @throws {TypeError} If the format is unsupported.
-	 */ constructor(format){
+     * Creates a new DecompressionStream for the given format.
+     * @param format The compression format to use for decompression ('deflate', 'deflate-raw', or 'gzip').
+     * @throws {TypeError} If the format is unsupported.
+     */ constructor(format){
         if (![
             "deflate",
             "deflate-raw",
@@ -1687,9 +2272,9 @@ $ed082760b2618cdb$var$_globalThis;
             flush (controller) {
                 try {
                     let decompressedBuffer;
-                    if (format === 'gzip') decompressedBuffer = Bun.gunzipSync(data);
-                    else if (format === 'deflate') decompressedBuffer = Bun.inflateSync(data);
-                    else if (format === 'deflate-raw') // Use negative windowBits for raw deflate (no zlib header/footer)
+                    if (format === "gzip") decompressedBuffer = Bun.gunzipSync(data);
+                    else if (format === "deflate") decompressedBuffer = Bun.inflateSync(data);
+                    else if (format === "deflate-raw") // Use negative windowBits for raw deflate (no zlib header/footer)
                     decompressedBuffer = Bun.inflateSync(data, {
                         windowBits: -15
                     }); // -15 is a common value for raw deflate
@@ -1700,6 +2285,7 @@ $ed082760b2618cdb$var$_globalThis;
                     }
                     controller.enqueue(decompressedBuffer);
                 } catch (error) {
+                    // Catching 'any' for broader error capture, refine if Bun's errors are typed.
                     controller.error(new TypeError(`Decompression failed for format '${format}'.`, {
                         cause: error
                     }));
@@ -1709,39 +2295,71 @@ $ed082760b2618cdb$var$_globalThis;
         });
     }
 }
+var $e251b9065c70768d$export$2e2bcd8739ae039 = $e251b9065c70768d$var$BunDecompressionStream;
+
+
+var // Pollyfill of DecompressionStream for Bun
+$ed082760b2618cdb$var$_globalThis;
 var $ed082760b2618cdb$var$_DecompressionStream;
-($ed082760b2618cdb$var$_DecompressionStream = ($ed082760b2618cdb$var$_globalThis = globalThis).DecompressionStream) !== null && $ed082760b2618cdb$var$_DecompressionStream !== void 0 ? $ed082760b2618cdb$var$_DecompressionStream : $ed082760b2618cdb$var$_globalThis.DecompressionStream = $ed082760b2618cdb$var$BunDecompressionStream;
+($ed082760b2618cdb$var$_DecompressionStream = ($ed082760b2618cdb$var$_globalThis = globalThis).DecompressionStream) !== null && $ed082760b2618cdb$var$_DecompressionStream !== void 0 ? $ed082760b2618cdb$var$_DecompressionStream : $ed082760b2618cdb$var$_globalThis.DecompressionStream = (0, $e251b9065c70768d$export$2e2bcd8739ae039);
 
 /**
  * DictionaryLoader base constructor
  * @param {string} dic_path Dictionary path
  * @constructor
  */ class $ed082760b2618cdb$var$DictionaryLoader {
-    dic;
     dic_path;
     constructor(dic_path){
-        this.dic = new (0, $0848a9c02181f40d$export$2e2bcd8739ae039)();
-        this.dic_path = dic_path;
+        let dicPath;
+        dic_path !== null && dic_path !== void 0 ? dic_path : dic_path = "/dict";
+        if (typeof dic_path !== "string") dicPath = dic_path;
+        else dicPath = {
+            tid: {
+                dict: "tid.dat.gz",
+                map: "tid_map.dat.gz",
+                pos: "tid_pos.dat.gz"
+            },
+            unk: {
+                dict: "unk.dat.gz",
+                map: "unk_map.dat.gz",
+                pos: "unk_pos.dat.gz"
+            },
+            cc: "cc.dat.gz",
+            chr: {
+                char: "unk_char.dat.gz",
+                compat: "unk_compat.dat.gz",
+                invoke: "unk_invoke.dat.gz"
+            },
+            word: {
+                type: "Trie",
+                base: "base.dat.gz",
+                check: "check.dat.gz"
+            },
+            base: dic_path
+        };
+        this.dic_path = dicPath;
     }
-    async loadArrayBuffer(file) {
+    async loadArrayBuffer(base, file) {
         let compressedData;
         if (typeof globalThis.Deno !== "undefined") // Okay. I'm on Deno. Let's just read it.
-        compressedData = await Deno.readFile(file);
+        compressedData = await Deno.readFile(base + file.path);
         else if (typeof globalThis.Bun !== "undefined") // Now, I'm on Bun. Let's use `Bun.file`.
-        compressedData = Buffer.from(await Bun.file(file).arrayBuffer());
+        compressedData = Buffer.from(await Bun.file(base + file.path).arrayBuffer());
         else if (typeof globalThis.process !== "undefined") {
             // Yep, I guess I'm on Node. read file by using promise!
             const fs = await $ed082760b2618cdb$importAsync$3fe130b383a0ea79;
-            compressedData = await fs.readFile(file);
+            compressedData = await fs.readFile(base + file.path);
         } else {
             // Looks like I'm in browser. Let's fetch it!
-            const response = await fetch(file);
-            if (!response.ok) throw new Error(`Failed to fetch ${file}: ${response.statusText}`);
+            const response = await fetch(base + file.path);
+            if (!response.ok) throw new Error(`Failed to fetch ${base + file.path}: ${response.statusText}`);
             // What the hell... They decompressed it automatically...
             return await response.arrayBuffer();
         }
-        // Decompress gzip
-        const ds = new DecompressionStream("gzip");
+        if (!file.compression) file.compression = "gzip";
+        // Decompress
+        if (file.compression === "raw") return compressedData.buffer;
+        const ds = new DecompressionStream(file.compression);
         const decompressedStream = new Blob([
             compressedData
         ]).stream().pipeThrough(ds);
@@ -1751,30 +2369,60 @@ var $ed082760b2618cdb$var$_DecompressionStream;
     /**
 	 * Load dictionary files
 	 */ async load() {
-        const dic = this.dic;
+        const dic = new (0, $0848a9c02181f40d$export$2e2bcd8739ae039)();
         const dic_path = this.dic_path;
         const loadArrayBuffer = this.loadArrayBuffer;
         await Promise.all([
-            // Trie
+            // WordDictionary
             async ()=>{
-                const buffers = await Promise.all([
-                    "base.dat.gz",
-                    "check.dat.gz"
-                ].map(async (filename)=>{
-                    return loadArrayBuffer(`${dic_path}/${filename}`);
-                }));
-                const base_buffer = new Int32Array(buffers[0]);
-                const check_buffer = new Int32Array(buffers[1]);
-                dic.loadTrie(base_buffer, check_buffer);
+                switch(dic_path.word.type){
+                    case "FST":
+                        {
+                            const FSTword_base = typeof dic_path.word.base === "string" ? {
+                                path: dic_path.word.base
+                            } : dic_path.word.base;
+                            const buffer = await loadArrayBuffer(`${dic_path.base}/`, FSTword_base);
+                            dic.loadFST(new Uint8Array(buffer));
+                            break;
+                        }
+                    case "Trie":
+                        {
+                            const Trieword_base = typeof dic_path.word.base === "string" ? {
+                                path: dic_path.word.base
+                            } : dic_path.word.base;
+                            const Trieword_check = typeof dic_path.word.check === "string" ? {
+                                path: dic_path.word.check
+                            } : dic_path.word.check;
+                            const buffers = await Promise.all([
+                                Trieword_base,
+                                Trieword_check
+                            ].map(async (file)=>{
+                                return loadArrayBuffer(`${dic_path.base}/`, file);
+                            }));
+                            const base_buffer = new Int32Array(buffers[0]);
+                            const check_buffer = new Int32Array(buffers[1]);
+                            dic.loadTrie(base_buffer, check_buffer);
+                            break;
+                        }
+                }
             },
             // Token info dictionaries
             async ()=>{
+                const TID_Dict = typeof dic_path.tid.dict === "string" ? {
+                    path: dic_path.tid.dict
+                } : dic_path.tid.dict;
+                const TID_Pos = typeof dic_path.tid.pos === "string" ? {
+                    path: dic_path.tid.pos
+                } : dic_path.tid.pos;
+                const TID_Map = typeof dic_path.tid.map === "string" ? {
+                    path: dic_path.tid.map
+                } : dic_path.tid.map;
                 const buffers = await Promise.all([
-                    "tid.dat.gz",
-                    "tid_pos.dat.gz",
-                    "tid_map.dat.gz"
-                ].map(async (filename)=>{
-                    return loadArrayBuffer(`${dic_path}/${filename}`);
+                    TID_Dict,
+                    TID_Pos,
+                    TID_Map
+                ].map((file)=>{
+                    return loadArrayBuffer(`${dic_path.base}/`, file);
                 }));
                 const token_info_buffer = new Uint8Array(buffers[0]);
                 const pos_buffer = new Uint8Array(buffers[1]);
@@ -1783,21 +2431,42 @@ var $ed082760b2618cdb$var$_DecompressionStream;
             },
             // Connection cost matrix
             async ()=>{
-                const buffer = await loadArrayBuffer(`${dic_path}/cc.dat.gz`);
+                const UNK_Dict = typeof dic_path.cc === "string" ? {
+                    path: dic_path.cc
+                } : dic_path.cc;
+                const buffer = await loadArrayBuffer(`${dic_path.base}/`, UNK_Dict);
                 const cc_buffer = new Int16Array(buffer);
                 dic.loadConnectionCosts(cc_buffer);
             },
             // Unknown dictionaries
             async ()=>{
+                const UNK_Dict = typeof dic_path.unk.dict === "string" ? {
+                    path: dic_path.unk.dict
+                } : dic_path.unk.dict;
+                const UNK_Pos = typeof dic_path.unk.pos === "string" ? {
+                    path: dic_path.unk.pos
+                } : dic_path.unk.pos;
+                const UNK_Map = typeof dic_path.unk.map === "string" ? {
+                    path: dic_path.unk.map
+                } : dic_path.unk.map;
+                const Char = typeof dic_path.chr.char === "string" ? {
+                    path: dic_path.chr.char
+                } : dic_path.chr.char;
+                const Compat = typeof dic_path.chr.compat === "string" ? {
+                    path: dic_path.chr.compat
+                } : dic_path.chr.compat;
+                const Invoke = typeof dic_path.chr.invoke === "string" ? {
+                    path: dic_path.chr.invoke
+                } : dic_path.chr.invoke;
                 const buffers = await Promise.all([
-                    "unk.dat.gz",
-                    "unk_pos.dat.gz",
-                    "unk_map.dat.gz",
-                    "unk_char.dat.gz",
-                    "unk_compat.dat.gz",
-                    "unk_invoke.dat.gz"
-                ].map(async (filename)=>{
-                    return loadArrayBuffer(`${dic_path}/${filename}`);
+                    UNK_Dict,
+                    UNK_Pos,
+                    UNK_Map,
+                    Char,
+                    Compat,
+                    Invoke
+                ].map(async (file)=>{
+                    return loadArrayBuffer(`${dic_path.base}/`, file);
                 }));
                 const unk_buffer = new Uint8Array(buffers[0]);
                 const unk_pos_buffer = new Uint8Array(buffers[1]);
@@ -1903,243 +2572,19 @@ var $f341130530ef2d14$export$2e2bcd8739ae039 = $f341130530ef2d14$var$IpadicForma
 var $e0828298df8affae$export$2e2bcd8739ae039 = $e0828298df8affae$var$UnidicFormatter;
 
 
-/**
- * TokenizerBuilder create Tokenizer instance.
- * @param {Object} option JSON object which have key-value pairs settings
- * @param {string} option.dicPath Dictionary directory path (or URL using in browser)
- * @param {"UniDic"|"IPADic"} option.dicType Dictionary directory path (or URL using in browser)
- * @constructor
- */ class $86e62aaff30319d5$var$TokenizerBuilder {
-    dic_path;
-    dic_type;
-    dic_formatter = {
-        UniDic: new (0, $e0828298df8affae$export$2e2bcd8739ae039)(),
-        IPADic: new (0, $f341130530ef2d14$export$2e2bcd8739ae039)()
-    };
-    constructor(option){
-        var _option_dicType;
-        this.dic_type = (_option_dicType = option.dicType) !== null && _option_dicType !== void 0 ? _option_dicType : "IPADic";
-        var _option_dicPath;
-        this.dic_path = (_option_dicPath = option.dicPath) !== null && _option_dicPath !== void 0 ? _option_dicPath : "dict/";
-    }
-    /**
-	 * Build Tokenizer instance by asynchronous manner
-	 */ async build() {
-        const loader = new (0, $ed082760b2618cdb$export$2e2bcd8739ae039)(this.dic_path);
-        await loader.load();
-        return new (0, $1d80c1e34dd115b9$export$2e2bcd8739ae039)(loader.dic, this.dic_formatter[this.dic_type]);
-    }
-}
-var $86e62aaff30319d5$export$2e2bcd8739ae039 = $86e62aaff30319d5$var$TokenizerBuilder;
-
-
-
-
-
-
-
-
-const $1f68d5c6b2004367$var$CATEGORY_DEF_PATTERN = /^(\w+)\s+(\d)\s+(\d)\s+(\d)/;
-const $1f68d5c6b2004367$var$CATEGORY_MAPPING_PATTERN = /^(0x[0-9A-F]{4})(?:\s+([^#\s]+))(?:\s+([^#\s]+))*/;
-const $1f68d5c6b2004367$var$RANGE_CATEGORY_MAPPING_PATTERN = /^(0x[0-9A-F]{4})\.\.(0x[0-9A-F]{4})(?:\s+([^#\s]+))(?:\s+([^#\s]+))*/;
-/**
- * CharacterDefinitionBuilder
- * @constructor
- */ class $1f68d5c6b2004367$var$CharacterDefinitionBuilder {
-    char_def;
-    character_category_definition;
-    category_mapping;
-    constructor(){
-        this.char_def = new (0, $46c43562c300c48f$export$2e2bcd8739ae039)();
-        this.char_def.invoke_definition_map = new (0, $48f30eff22694b93$export$2e2bcd8739ae039)();
-        this.character_category_definition = [];
-        this.category_mapping = [];
-    }
-    putLine(line) {
-        const parsed_category_def = $1f68d5c6b2004367$var$CATEGORY_DEF_PATTERN.exec(line);
-        if (parsed_category_def != null) {
-            const class_id = this.character_category_definition.length;
-            const char_class = (0, $46c43562c300c48f$export$2e2bcd8739ae039).parseCharCategory(class_id, parsed_category_def);
-            if (char_class == null) return;
-            this.character_category_definition.push(char_class);
-            return;
-        }
-        const parsed_category_mapping = $1f68d5c6b2004367$var$CATEGORY_MAPPING_PATTERN.exec(line);
-        if (parsed_category_mapping != null) {
-            const mapping = (0, $46c43562c300c48f$export$2e2bcd8739ae039).parseCategoryMapping(parsed_category_mapping);
-            this.category_mapping.push(mapping);
-        }
-        const parsed_range_category_mapping = $1f68d5c6b2004367$var$RANGE_CATEGORY_MAPPING_PATTERN.exec(line);
-        if (parsed_range_category_mapping != null) {
-            const range_mapping = (0, $46c43562c300c48f$export$2e2bcd8739ae039).parseRangeCategoryMapping(parsed_range_category_mapping);
-            this.category_mapping.push(range_mapping);
-        }
-    }
-    build() {
-        // TODO If DEFAULT category does not exist, throw error
-        if (!this.char_def.invoke_definition_map) throw new Error("invoke_definition_map is not initialized");
-        this.char_def.invoke_definition_map.init(this.character_category_definition);
-        this.char_def.initCategoryMappings(this.category_mapping);
-        return this.char_def;
-    }
-}
-var $1f68d5c6b2004367$export$2e2bcd8739ae039 = $1f68d5c6b2004367$var$CharacterDefinitionBuilder;
-
-
-
-/**
- * Builder class for constructing ConnectionCosts object
- * @constructor
- */ class $3089003cac8608b4$var$ConnectionCostsBuilder {
-    lines;
-    connection_cost;
-    constructor(){
-        this.lines = 0;
-    }
-    putLine(line) {
-        var _this_connection_cost, _this_connection_cost1, _this_connection_cost2;
-        if (this.lines === 0) {
-            const dimensions = line.split(" ");
-            const forward_dimension = Number.parseInt(dimensions[0]);
-            const backward_dimension = Number.parseInt(dimensions[1]);
-            if (forward_dimension < 0 || backward_dimension < 0) throw "Parse error of matrix.def";
-            this.connection_cost = new (0, $a8d092bebaac30aa$export$2e2bcd8739ae039)(forward_dimension, backward_dimension);
-            this.lines++;
-            return this;
-        }
-        const costs = line.split(" ");
-        if (costs.length !== 3) return this;
-        const forward_id = Number.parseInt(costs[0]);
-        const backward_id = Number.parseInt(costs[1]);
-        const cost = Number.parseInt(costs[2]);
-        if (forward_id < 0 || backward_id < 0 || !Number.isFinite(forward_id) || !Number.isFinite(backward_id) || ((_this_connection_cost = this.connection_cost) === null || _this_connection_cost === void 0 ? void 0 : _this_connection_cost.forward_dimension) <= forward_id || ((_this_connection_cost1 = this.connection_cost) === null || _this_connection_cost1 === void 0 ? void 0 : _this_connection_cost1.backward_dimension) <= backward_id) throw "Parse error of matrix.def";
-        (_this_connection_cost2 = this.connection_cost) === null || _this_connection_cost2 === void 0 ? void 0 : _this_connection_cost2.put(forward_id, backward_id, cost);
-        this.lines++;
-        return this;
-    }
-    build() {
-        if (!this.connection_cost) throw new Error("ConnectionCosts is not initialized");
-        return this.connection_cost;
-    }
-}
-var $3089003cac8608b4$export$2e2bcd8739ae039 = $3089003cac8608b4$var$ConnectionCostsBuilder;
-
-
-/**
- * Build dictionaries (token info, connection costs)
- *
- * Generates from matrix.def
- * cc.dat: Connection costs
- *
- * Generates from *.csv
- * dat.dat: Double array
- * tid.dat: Token info dictionary
- * tid_map.dat: targetMap
- * tid_pos.dat: posList (part of speech)
- */ class $0763a7dff3591e94$var$DictionaryBuilder {
-    tid_entries;
-    unk_entries;
-    cc_builder;
-    cd_builder;
-    constructor(){
-        // Array of entries, each entry in Mecab form
-        // (0: surface form, 1: left id, 2: right id, 3: word cost, 4: part of speech id, 5-: other features)
-        this.tid_entries = [];
-        this.unk_entries = [];
-        this.cc_builder = new (0, $3089003cac8608b4$export$2e2bcd8739ae039)();
-        this.cd_builder = new (0, $1f68d5c6b2004367$export$2e2bcd8739ae039)();
-    }
-    addTokenInfoDictionary(new_entry) {
-        this.tid_entries.push(new_entry);
-        return this;
-    }
-    /**
-	 * Put one line of "matrix.def" file for building ConnectionCosts object
-	 * @param {string} line is a line of "matrix.def"
-	 */ putCostMatrixLine(line) {
-        this.cc_builder.putLine(line);
-        return this;
-    }
-    putCharDefLine(line) {
-        this.cd_builder.putLine(line);
-        return this;
-    }
-    /**
-	 * Put one line of "unk.def" file for building UnknownDictionary object
-	 * @param {string[]} new_entry is a line of "unk.def"
-	 */ putUnkDefLine(new_entry) {
-        this.unk_entries.push(new_entry);
-        return this;
-    }
-    build() {
-        const dictionaries = this.buildTokenInfoDictionary();
-        const unknown_dictionary = this.buildUnknownDictionary();
-        return new (0, $0848a9c02181f40d$export$2e2bcd8739ae039)(dictionaries.trie, dictionaries.token_info_dictionary, this.cc_builder.build(), unknown_dictionary);
-    }
-    /**
-	 * Build TokenInfoDictionary
-	 *
-	 * @returns {{trie: DoubleArray, token_info_dictionary: TokenInfoDictionary}}
-	 */ buildTokenInfoDictionary() {
-        const token_info_dictionary = new (0, $b0b6d5d6e9241a5d$export$2e2bcd8739ae039)();
-        // using as hashmap, string -> string (word_id -> surface_form) to build dictionary
-        const dictionary_entries = token_info_dictionary.buildDictionary(this.tid_entries);
-        const trie = this.buildDoubleArray();
-        for(const token_info_id in dictionary_entries){
-            const surface_form = dictionary_entries[token_info_id];
-            const trie_id = trie.lookup(surface_form);
-            // Assertion
-            // if (trie_id < 0) {
-            //     console.log("Not Found:" + surface_form);
-            // }
-            token_info_dictionary.addMapping(trie_id, token_info_id);
-        }
-        return {
-            trie: trie,
-            token_info_dictionary: token_info_dictionary
-        };
-    }
-    buildUnknownDictionary() {
-        const unk_dictionary = new (0, $01d4a28b5b1ce081$export$2e2bcd8739ae039)();
-        // using as hashmap, string -> string (word_id -> surface_form) to build dictionary
-        const dictionary_entries = unk_dictionary.buildDictionary(this.unk_entries);
-        const char_def = this.cd_builder.build(); // Create CharacterDefinition
-        if (!char_def.invoke_definition_map) throw new Error("invoke_definition_map is not initialized");
-        unk_dictionary.characterDefinition(char_def);
-        for(const token_info_id in dictionary_entries){
-            const class_name = dictionary_entries[token_info_id];
-            const class_id = char_def.invoke_definition_map.lookup(class_name);
-            // Assertion
-            // if (trie_id < 0) {
-            //     console.log("Not Found:" + surface_form);
-            // }
-            unk_dictionary.addMapping(class_id, token_info_id);
-        }
-        return unk_dictionary;
-    }
-    /**
-	 * Build double array trie
-	 *
-	 * @returns {DoubleArray} Double-Array trie
-	 */ buildDoubleArray() {
-        let trie_id = 0;
-        const words = this.tid_entries.map((entry)=>{
-            const surface_form = entry[0];
-            return {
-                k: surface_form,
-                v: trie_id++
-            };
-        });
-        const builder = (0, $60f4f4059ac4d094$export$933032be53f7ca16)(1048576);
-        return builder.build(words);
-    }
-}
-var $0763a7dff3591e94$export$2e2bcd8739ae039 = $0763a7dff3591e94$var$DictionaryBuilder;
-
-
+const $37b60524ff1d5820$var$dic_formatter = {
+    IPAdic: new (0, $f341130530ef2d14$export$2e2bcd8739ae039)(),
+    UniDic: new (0, $e0828298df8affae$export$2e2bcd8739ae039)(),
+    "NAIST-jdic": new (0, $f341130530ef2d14$export$2e2bcd8739ae039)()
+};
 // Public methods
 const $37b60524ff1d5820$var$kuromoji = {
-    builder: (option)=>new (0, $86e62aaff30319d5$export$2e2bcd8739ae039)(option),
+    build: async (option)=>{
+        const loader = new (0, $ed082760b2618cdb$export$2e2bcd8739ae039)(option.dicPath);
+        const dic = await loader.load();
+        var _option_dicType;
+        return new (0, $1d80c1e34dd115b9$export$2e2bcd8739ae039)(dic, $37b60524ff1d5820$var$dic_formatter[(_option_dicType = option.dicType) !== null && _option_dicType !== void 0 ? _option_dicType : "IPAdic"]);
+    },
     dictionaryBuilder: ()=>new (0, $0763a7dff3591e94$export$2e2bcd8739ae039)()
 };
 var $37b60524ff1d5820$export$2e2bcd8739ae039 = $37b60524ff1d5820$var$kuromoji;

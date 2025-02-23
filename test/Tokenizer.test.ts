@@ -48,7 +48,7 @@ describe("Tokenizer static method test", () => {
 describe("Tokenizer for IPADic", async () => {
     let tokenizer: Tokenizer
     beforeAll(async () => {
-        tokenizer = await kuromoji.builder({ dicPath: IPADIC_DIR }).build();
+        tokenizer = await kuromoji.build({ dicPath: IPADIC_DIR });
         expect(tokenizer).to.be.a("object");
     });
 
@@ -200,7 +200,7 @@ describe("Tokenizer for IPADic", async () => {
 describe("Tokenizer for UniDic", async () => {
     let tokenizer: Tokenizer
     beforeAll(async () => {
-        tokenizer = await kuromoji.builder({ dicPath: UNIDIC_DIR, dicType: "UniDic" }).build();
+        tokenizer = await kuromoji.build({ dicPath: UNIDIC_DIR, dicType: "UniDic" });
         expect(tokenizer).to.be.a("object");
     });
 

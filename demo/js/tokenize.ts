@@ -1,4 +1,4 @@
-import kuromoji from "../../src/kuromoji";
+import kuromoji from "../../build/kuromoji";
 const DIC_URL = "../dict/unidic";
 (async ()=>{
     const input = document.querySelector("#input") as HTMLInputElement
@@ -15,7 +15,7 @@ const DIC_URL = "../dict/unidic";
         msgbox.style.display = "block";
         frombox.style.display = "none";
         // Load and prepare tokenizer
-        const tokenizer = await kuromoji.builder({ dicPath: DIC_URL, dicType: "UniDic" }).build();
+        const tokenizer = await kuromoji.build({ dicPath: DIC_URL, dicType: "UniDic" });
 
         input.value = "すもももももももものうち";
         msgbox.style.display = "none";

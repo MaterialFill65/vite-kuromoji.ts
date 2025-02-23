@@ -1,3 +1,45 @@
+interface KeyValue {
+    k: string | Uint8Array;
+    v: number;
+}
+interface Transition {
+    state: State;
+    output: Uint8Array;
+}
+interface TransitionMap {
+    [key: number]: Transition;
+}
+declare class State {
+    id: number | null;
+    final: boolean;
+    transMap: TransitionMap;
+    finalOutput: Set<Uint8Array>;
+    constructor(id?: number | null);
+    isFinal(): boolean;
+    setFinal(final: boolean): void;
+    transition(char: number): State | null;
+    setTransition(char: number, state: State): void;
+    stateOutput(): Set<Uint8Array>;
+    setStateOutput(output: Set<Uint8Array>): void;
+    clearStateOutput(): void;
+    output(char: number): Uint8Array;
+    setOutput(char: number, out: Uint8Array): void;
+    clear(): void;
+}
+declare class FST {
+    dictionary: Map<string, State>;
+    constructor();
+    size(): number;
+    member(state: State): State | undefined;
+    insert(state: State): void;
+}
+declare class Matcher implements WordSearch {
+    constructor(dictData?: Uint8Array);
+    run(word: Uint8Array): [boolean, Set<Uint8Array>];
+    lookup(key: string): number;
+    commonPrefixSearch(word: string): KeyValue[];
+    getBuffer(): Uint8Array<ArrayBufferLike>;
+}
 type Arrays = Int8Array | Int16Array | Int32Array | Uint8Array | Uint16Array | Uint32Array;
 interface BaseAndCheck {
     getBaseBuffer(): Arrays;
@@ -19,14 +61,52 @@ interface BaseAndCheck {
     };
     dump(): string;
 }
-interface KeyValue {
+interface _KeyValue1 {
     k: string | Uint8Array;
     v: number;
 }
 /**
  * Factory method of double array
  */
-declare class DoubleArray {
+declare class DoubleArrayBuilder {
+    bc: BaseAndCheck;
+    keys: _KeyValue1[];
+    constructor(initial_size: number | undefined);
+    /**
+     * Append a key to initialize set
+     * (This method should be called by dictionary ordered key)
+     *
+     * @param {String} key
+     * @param {Number} record Integer value from 0 to max signed integer number - 1
+     */
+    append(key: string, record: number): this;
+    /**
+     * Build double array for given keys
+     *
+     * @param {Array} keys Array of keys. A key is a Object which has properties 'k', 'v'.
+     * 'k' is a key string, 'v' is a record assigned to that key.
+     * @return {DoubleArray} Compiled double array
+     */
+    build(keys?: _KeyValue1[], sorted?: boolean): DoubleArray;
+    /**
+     * Append nodes to BASE and CHECK array recursively
+     */
+    _build(parent_index: number, position: number, start: number, length: number): void;
+    getChildrenInfo(position: number, start: number, length: number): Int32Array<ArrayBuffer>;
+    setBC(parent_id: number, children_info: Int32Array, _base: number): void;
+    /**
+     * Find BASE value that all children are allocatable in double array's region
+     */
+    findAllocatableBase(children_info: Int32Array): number;
+    /**
+     * Check this double array index is unused or not
+     */
+    isUnusedNode(index: number): boolean;
+}
+/**
+ * Factory method of double array
+ */
+declare class DoubleArray implements WordSearch {
     bc: BaseAndCheck;
     constructor(bc: BaseAndCheck);
     /**
@@ -50,7 +130,7 @@ declare class DoubleArray {
      * @return {Array} Each result object has 'k' and 'v' (key and record,
      * respectively) properties assigned to matched string
      */
-    commonPrefixSearch(key: string): KeyValue[];
+    commonPrefixSearch(key: string): _KeyValue1[];
     traverse(parent: number, code: number): number;
     size(): number;
     calc(): {
@@ -97,6 +177,33 @@ declare class ByteBuffer {
     readInt(): number;
     putString(str: string): void;
     getString(index?: number): string;
+}
+/**
+ * TokenInfoDictionary
+ * @constructor
+ */
+declare class TokenInfoDictionary {
+    dictionary: ByteBuffer;
+    target_map: {
+        [x: string]: (number | string)[];
+    };
+    pos_buffer: ByteBuffer;
+    constructor();
+    buildDictionary(entries: string[][]): {
+        [x: number]: string;
+    };
+    put(left_id: number, right_id: number, word_cost: number, surface_form: string, feature: string): number;
+    addMapping(source: number, target: number | string): void;
+    targetMapToBuffer(): Uint8Array<ArrayBufferLike>;
+    loadDictionary(array_buffer?: Uint8Array<ArrayBufferLike>): this;
+    loadPosVector(array_buffer?: Uint8Array<ArrayBufferLike>): this;
+    loadTargetMap(array_buffer?: Uint8Array<ArrayBufferLike>): this;
+    /**
+     * Look up features in the dictionary
+     * @param {string} token_info_id_str Word ID to look up
+     * @returns {string} Features string concatenated by ","
+     */
+    getFeatures(token_info_id_str: string): string;
 }
 /**
  * CharacterClass
@@ -153,33 +260,6 @@ declare class InvokeDefinitionMap {
      * @returns {Uint8Array}
      */
     toBuffer(): Uint8Array;
-}
-/**
- * TokenInfoDictionary
- * @constructor
- */
-declare class TokenInfoDictionary {
-    dictionary: ByteBuffer;
-    target_map: {
-        [x: string]: (number | string)[];
-    };
-    pos_buffer: ByteBuffer;
-    constructor();
-    buildDictionary(entries: string[][]): {
-        [x: number]: string;
-    };
-    put(left_id: number, right_id: number, word_cost: number, surface_form: string, feature: string): number;
-    addMapping(source: number, target: number | string): void;
-    targetMapToBuffer(): Uint8Array<ArrayBufferLike>;
-    loadDictionary(array_buffer?: Uint8Array<ArrayBufferLike>): this;
-    loadPosVector(array_buffer?: Uint8Array<ArrayBufferLike>): this;
-    loadTargetMap(array_buffer?: Uint8Array<ArrayBufferLike>): this;
-    /**
-     * Look up features in the dictionary
-     * @param {string} token_info_id_str Word ID to look up
-     * @returns {string} Features string concatenated by ","
-     */
-    getFeatures(token_info_id_str: string): string;
 }
 /**
  * CharacterDefinition represents char.def file and
@@ -246,6 +326,14 @@ declare class UnknownDictionary extends TokenInfoDictionary {
     lookupCompatibleCategory(ch: string): $$parcel$import$1[];
     loadUnknownDictionaries(unk_buffer: Uint8Array<ArrayBufferLike>, unk_pos_buffer: Uint8Array<ArrayBufferLike>, unk_map_buffer: Uint8Array<ArrayBufferLike>, cat_map_buffer: Uint8Array, compat_cat_map_buffer: Uint32Array, invoke_def_buffer: Uint8Array): void;
 }
+interface _KeyValue2 {
+    k: string | Uint8Array;
+    v: number;
+}
+interface WordSearch {
+    commonPrefixSearch(word: string): _KeyValue2[];
+    lookup(key: string): number;
+}
 /**
  * Dictionaries container for Tokenizer
  * @param {DoubleArray} trie
@@ -255,12 +343,13 @@ declare class UnknownDictionary extends TokenInfoDictionary {
  * @constructor
  */
 declare class DynamicDictionaries {
-    trie: DoubleArray;
+    word: WordSearch;
     token_info_dictionary: TokenInfoDictionary;
     connection_costs: ConnectionCosts;
     unknown_dictionary: UnknownDictionary;
-    constructor(trie?: DoubleArray, token_info_dictionary?: TokenInfoDictionary, connection_costs?: ConnectionCosts, unknown_dictionary?: UnknownDictionary);
+    constructor(word?: WordSearch, token_info_dictionary?: TokenInfoDictionary, connection_costs?: ConnectionCosts, unknown_dictionary?: UnknownDictionary);
     loadTrie(base_buffer: Int8Array<ArrayBufferLike> | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Uint8Array<ArrayBufferLike> | Uint16Array<ArrayBufferLike> | Uint32Array<ArrayBufferLike>, check_buffer: Int8Array<ArrayBufferLike> | Int16Array<ArrayBufferLike> | Int32Array<ArrayBufferLike> | Uint8Array<ArrayBufferLike> | Uint16Array<ArrayBufferLike> | Uint32Array<ArrayBufferLike>): this;
+    loadFST(base_buffer: Uint8Array): this;
     loadTokenInfoDictionaries(token_info_buffer: Uint8Array<ArrayBufferLike> | undefined, pos_buffer: Uint8Array<ArrayBufferLike> | undefined, target_map_buffer: Uint8Array<ArrayBufferLike> | undefined): this;
     loadConnectionCosts(cc_buffer: Int16Array<ArrayBuffer>): this;
     loadUnknownDictionaries(unk_buffer: Uint8Array<ArrayBufferLike>, unk_pos_buffer: Uint8Array<ArrayBufferLike>, unk_map_buffer: Uint8Array<ArrayBufferLike>, cat_map_buffer: Uint8Array, compat_cat_map_buffer: Uint32Array, invoke_def_buffer: Uint8Array): this;
@@ -333,7 +422,7 @@ declare class ViterbiLattice {
  * @constructor
  */
 declare class ViterbiBuilder {
-    trie: DoubleArray;
+    word: WordSearch;
     token_info_dictionary: TokenInfoDictionary;
     unknown_dictionary: UnknownDictionary;
     constructor(dic: DynamicDictionaries);
@@ -393,26 +482,29 @@ declare class Tokenizer {
      */
     getLattice(text: string): ViterbiLattice;
 }
-type dicType = "UniDic" | "IPADic";
-/**
- * TokenizerBuilder create Tokenizer instance.
- * @param {Object} option JSON object which have key-value pairs settings
- * @param {string} option.dicPath Dictionary directory path (or URL using in browser)
- * @param {"UniDic"|"IPADic"} option.dicType Dictionary directory path (or URL using in browser)
- * @constructor
- */
-declare class TokenizerBuilder {
-    dic_path: string;
-    dic_type: dicType;
-    dic_formatter: Record<dicType, Formatter>;
-    constructor(option: {
-        dicPath?: string;
-        dicType?: dicType;
-    });
+interface _KeyValue3 {
+    k: string;
+    v: number;
+}
+declare class FSTBuilder {
+    constructor();
     /**
-     * Build Tokenizer instance by asynchronous manner
+     * 新しい状態を作成します
      */
-    build(): Promise<Tokenizer>;
+    newState(): State;
+    /**
+     * 単語と出力をFSTに追加します
+     */
+    add(word: Uint8Array, output: Uint8Array): void;
+    append(key: string, record: number): this;
+    /**
+     * 文字列と出力のペアを一括で追加します
+     */
+    addAll(entries: Array<[Uint8Array, Uint8Array]>): void;
+    /**
+     * FSTを最適化して構築します
+     */
+    build(keys: _KeyValue3[]): FST;
 }
 /**
  * CharacterDefinitionBuilder
@@ -455,12 +547,21 @@ declare class ConnectionCostsBuilder {
  * tid_pos.dat: posList (part of speech)
  */
 declare class DictionaryBuilder {
-    tid_entries: string[][];
-    unk_entries: string[][];
+    tid: TokenInfoDictionary;
+    unk: UnknownDictionary;
     cc_builder: ConnectionCostsBuilder;
     cd_builder: CharacterDefinitionBuilder;
+    unk_dictionary_entries: {
+        [x: number]: string;
+    };
+    tid_dictionary_entries: {
+        [x: number]: string;
+    };
+    fst_builder: FSTBuilder;
+    trie_builder: DoubleArrayBuilder;
+    trie_id: number;
     constructor();
-    addTokenInfoDictionary(new_entry: string[]): this;
+    addTokenInfoDictionary(new_entry: string): void;
     /**
      * Put one line of "matrix.def" file for building ConnectionCosts object
      * @param {string} line is a line of "matrix.def"
@@ -471,18 +572,19 @@ declare class DictionaryBuilder {
      * Put one line of "unk.def" file for building UnknownDictionary object
      * @param {string[]} new_entry is a line of "unk.def"
      */
-    putUnkDefLine(new_entry: string[]): this;
-    build(): DynamicDictionaries;
+    putUnkDefLine(new_entry: string): void;
+    build(isTrie?: boolean): DynamicDictionaries;
     /**
      * Build TokenInfoDictionary
      *
-     * @returns {{trie: DoubleArray, token_info_dictionary: TokenInfoDictionary}}
+     * @returns {{trie: WordSearch, token_info_dictionary: TokenInfoDictionary}}
      */
-    buildTokenInfoDictionary(): {
-        trie: DoubleArray;
+    buildTokenInfoDictionary(isTrie: boolean): {
+        word: WordSearch;
         token_info_dictionary: TokenInfoDictionary;
     };
     buildUnknownDictionary(): UnknownDictionary;
+    buildFST(): Matcher;
     /**
      * Build double array trie
      *
@@ -490,11 +592,45 @@ declare class DictionaryBuilder {
      */
     buildDoubleArray(): DoubleArray;
 }
+type dicType = "UniDic" | "IPAdic" | "NAIST-jdic";
+interface DetailedFile {
+    readonly path: string;
+    compression?: "raw" | "gzip" | "deflate";
+}
+type file = string | DetailedFile;
+interface dict {
+    readonly dict: file;
+    readonly pos: file;
+    readonly map: file;
+}
+interface chr {
+    readonly char: file;
+    readonly compat: file;
+    readonly invoke: file;
+}
+interface trie {
+    readonly type: "Trie";
+    readonly base: file;
+    readonly check: file;
+}
+interface fst {
+    readonly type: "FST";
+    readonly base: file;
+}
+interface DetailedDicPath {
+    readonly tid: dict;
+    readonly unk: dict;
+    readonly cc: file;
+    readonly chr: chr;
+    readonly word: trie | fst;
+    readonly base: string;
+}
+interface manifest {
+    readonly dicType?: dicType;
+    dicPath?: DetailedDicPath | string;
+}
 declare const kuromoji: {
-    builder: (option: {
-        dicPath?: string;
-        dicType?: "UniDic" | "IPADic";
-    }) => TokenizerBuilder;
+    build: (option: manifest) => Promise<Tokenizer>;
     dictionaryBuilder: () => DictionaryBuilder;
 };
 export default kuromoji;

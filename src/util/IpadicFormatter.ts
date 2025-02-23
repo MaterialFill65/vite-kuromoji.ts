@@ -1,4 +1,4 @@
-import type { Token, Formatter } from "./Formatter";
+import type { Formatter, Token } from "./Formatter";
 
 /**
  * Mappings between IPADIC dictionary features and tokenized results

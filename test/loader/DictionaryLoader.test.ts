@@ -22,11 +22,10 @@ import type DynamicDictionaries from "../../src/dict/DynamicDictionaries";
 const IPADIC_DIR = "dict/ipadic/";
 const UNIDIC_DIR = "dict/unidic/";
 
-describe("DictionaryLoader",async () => {
+describe("DictionaryLoader",() => {
     describe("ipadic", async () => {
         const loader = new DictionaryLoader(IPADIC_DIR);
-        await loader.load();
-        const dictionaries: DynamicDictionaries = loader.dic; // target object
+        const dictionaries: DynamicDictionaries = await loader.load(); // target object
 
         it("Unknown dictionaries are loaded properly", () => {
             expect(dictionaries?.unknown_dictionary.lookup(" ")).to.deep.equal({
@@ -43,8 +42,7 @@ describe("DictionaryLoader",async () => {
     });
     describe("unidic", async () => {
         const loader = new DictionaryLoader(UNIDIC_DIR);
-        await loader.load();
-        const dictionaries: DynamicDictionaries = loader.dic; // target object
+        const dictionaries: DynamicDictionaries = await loader.load(); // target object
 
         it("Unknown dictionaries are loaded properly", () => {
             expect(dictionaries?.unknown_dictionary.lookup(" ")).to.deep.equal({

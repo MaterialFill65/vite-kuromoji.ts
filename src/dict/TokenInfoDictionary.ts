@@ -32,7 +32,6 @@ class TokenInfoDictionary {
 			const left_id = Number(entry[1]);
 			const right_id = Number(entry[2]);
 			const word_cost = Number(entry[3]);
-			// TODO: Is it OK?
 			const feature = entry.slice(4).join(","); // TODO Optimize
 
 			// Assertion

@@ -16,6 +16,7 @@
  */
 
 import type DynamicDictionaries from "../dict/DynamicDictionaries";
+import type { WordSearch } from "../dict/DynamicDictionaries";
 import type TokenInfoDictionary from "../dict/TokenInfoDictionary";
 import type UnknownDictionary from "../dict/UnknownDictionary";
 import type { DoubleArray } from "../util/DoubleArray";
@@ -29,11 +30,11 @@ import ViterbiNode from "./ViterbiNode";
  * @constructor
  */
 class ViterbiBuilder {
-	trie: DoubleArray;
+	word: WordSearch;
 	token_info_dictionary: TokenInfoDictionary;
 	unknown_dictionary: UnknownDictionary;
 	constructor(dic: DynamicDictionaries) {
-		this.trie = dic.trie;
+		this.word = dic.word;
 		this.token_info_dictionary = dic.token_info_dictionary;
 		this.unknown_dictionary = dic.unknown_dictionary;
 	}
@@ -53,7 +54,7 @@ class ViterbiBuilder {
 		let word_cost: number;
 		for (let pos = 0; pos < sentence.length; pos++) {
 			const tail = sentence.slice(pos);
-			const vocabulary = this.trie.commonPrefixSearch(tail);
+			const vocabulary = this.word.commonPrefixSearch(tail);
 			for (let n = 0; n < vocabulary.length; n++) {
 				// Words in dictionary do not have surrogate pair (only UCS2 set)
 				trie_id = vocabulary[n].v;
