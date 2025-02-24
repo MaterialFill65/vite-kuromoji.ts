@@ -78,19 +78,19 @@ class Matcher implements WordSearch {
 		const buffer = textEncoder.encode(word);
 
 		const searchResult: externalKeyValue[] = [];
-		for (let i = 1; i <= buffer.length; i++) {
-			const [accepted, result] = this.run(buffer.slice(0, i));
+
+		for (let i = 1; i <= buffer.length; i ++) {
+			const target = buffer.slice(0, i);
+			const [accepted, result] = this.run(target);
 			if (!accepted) {
 				continue;
 			}
 			const arrayed = Array.from(result);
 
-			const tmp_searchResult = arrayed.map<externalKeyValue>((enc_output) => ({
-				k: textDecoder.decode(buffer.slice(0, i)),
-				v: Number.parseInt(textDecoder.decode(enc_output)),
-			})
-			);
-			searchResult.push(tmp_searchResult[0]);
+			const enc_output = arrayed[0]
+			const key = textDecoder.decode(target);
+			const value = Number(textDecoder.decode(enc_output));
+			searchResult.push({ k: key, v: value });
 		}
 
 		return searchResult;

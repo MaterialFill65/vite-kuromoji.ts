@@ -488,6 +488,135 @@ describe("Tokenizer for UniDic with FST", async () => {
         expect(path[6].word_position).to.eql(7);
         expect(path[7].word_position).to.eql(8);
     });
+
+    it("StreamTest", async () => {
+        const stream = tokenizer.getTokenizeStream<{ id: number }>();
+        const expected_tokens = [
+            {
+                word_type: "KNOWN",
+                word_position: 1,
+                surface_form: "すもも",
+                pos: "名詞",
+                pos_detail_1: "一般",
+                pos_detail_2: "*",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "すもも",
+                reading: "スモモ",
+                pronunciation: "スモモ"
+            },
+            {
+                word_type: "KNOWN",
+                word_position: 4,
+                surface_form: "も",
+                pos: "助詞",
+                pos_detail_1: "係助詞",
+                pos_detail_2: "*",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "も",
+                reading: "モ",
+                pronunciation: "モ"
+            },
+            {
+                word_type: "KNOWN",
+                word_position: 5,
+                surface_form: "もも",
+                pos: "名詞",
+                pos_detail_1: "一般",
+                pos_detail_2: "*",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "もも",
+                reading: "モモ",
+                pronunciation: "モモ"
+            },
+            {
+                word_type: "KNOWN",
+                word_position: 7,
+                surface_form: "も",
+                pos: "助詞",
+                pos_detail_1: "係助詞",
+                pos_detail_2: "*",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "も",
+                reading: "モ",
+                pronunciation: "モ"
+            },
+            {
+                word_type: "KNOWN",
+                word_position: 8,
+                surface_form: "もも",
+                pos: "名詞",
+                pos_detail_1: "一般",
+                pos_detail_2: "*",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "もも",
+                reading: "モモ",
+                pronunciation: "モモ"
+            },
+            {
+                word_type: "KNOWN",
+                word_position: 10,
+                surface_form: "の",
+                pos: "助詞",
+                pos_detail_1: "連体化",
+                pos_detail_2: "*",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "の",
+                reading: "ノ",
+                pronunciation: "ノ"
+            },
+            {
+                word_type: "KNOWN",
+                word_position: 11,
+                surface_form: "うち",
+                pos: "名詞",
+                pos_detail_1: "非自立",
+                pos_detail_2: "副詞可能",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "うち",
+                reading: "ウチ",
+                pronunciation: "ウチ"
+            }
+        ];
+        const input = "すもももももももものうち";
+        const count = 1000
+        const startTime = performance.now();
+        const endTime: number = await new Promise<number>(async (resolve) => {
+
+            const writer = stream.writable.getWriter();
+            const output = new WritableStream<exDF<Token[], { id: number; }>>({
+                write: (data) => {
+                    if (data.flag.id >= count) {
+                        resolve(performance.now());
+                    }
+                }
+            });
+            stream.readable.pipeTo(output);
+            for (let i = 1; i <= count; i++) {
+                await writer.write({ content: input, flag: { id: i } });
+            }
+            await writer.close();
+        });
+
+        const totalTime = endTime - startTime;
+        const tokensPerSecond = (count * expected_tokens.length) / (totalTime / 1000);
+        console.log(`Processed ${count} sentences (${count * expected_tokens.length} tokens) in ${totalTime}ms`);
+        console.log(`Performance: ${tokensPerSecond.toFixed(2)} tokens/second`);
+        expect(tokensPerSecond).to.be.greaterThan(0);
+    });
 });
 
 describe("Tokenizer async tokenize method test", () => {
