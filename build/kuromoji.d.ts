@@ -387,6 +387,10 @@ declare class ViterbiSearcher {
     forward(lattice: ViterbiLattice): ViterbiLattice;
     backward(lattice: ViterbiLattice): ViterbiNode[];
 }
+interface exDF<T, F> {
+    content: T;
+    flag: F;
+}
 /**
  * Tokenizer
  * @param {DynamicDictionaries} dic Dictionaries used by this tokenizer
@@ -398,9 +402,6 @@ declare class Tokenizer {
     viterbi_builder: ViterbiBuilder;
     viterbi_searcher: ViterbiSearcher;
     formatter: Formatter;
-    stream: TransformStream<string, Token[]>;
-    writable: WritableStreamDefaultWriter<string>;
-    readble: ReadableStreamDefaultReader<Token[]>;
     constructor(dic: DynamicDictionaries, formatter: Formatter);
     /**
      * Split into sentence by punctuation
@@ -414,9 +415,9 @@ declare class Tokenizer {
      * @returns {Array} Tokens
      */
     tokenizeSync(text: string): Token[];
-    tokenize(text: string): Promise<Token[]>;
-    getTokenizeStream(): TransformStream<string, Token[]>;
-    getTokenStream(): TransformStream<string, Token>;
+    tokenize<T extends any>(text: string, flags: T): Promise<Token[]>;
+    getTokenizeStream<F>(): TransformStream<exDF<string, F>, exDF<Token[], F>>;
+    getTokenStream<F>(): TransformStream<exDF<string, F>, exDF<Token, F>>;
     tokenizeForSentence(sentence: string, tokens?: Token[]): Token[];
     /**
      * Build word lattice

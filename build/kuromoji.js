@@ -348,18 +348,12 @@ const $1d80c1e34dd115b9$var$PUNCTUATION = /、|。/;
     viterbi_builder;
     viterbi_searcher;
     formatter;
-    stream;
-    writable;
-    readble;
     constructor(dic, formatter){
         this.token_info_dictionary = dic.token_info_dictionary;
         this.unknown_dictionary = dic.unknown_dictionary;
         this.viterbi_builder = new (0, $a5dea0986113324f$export$2e2bcd8739ae039)(dic);
         this.viterbi_searcher = new (0, $f2cbeb1834e5877a$export$2e2bcd8739ae039)(dic.connection_costs);
         this.formatter = formatter;
-        this.stream = this.getTokenizeStream();
-        this.writable = this.stream.writable.getWriter();
-        this.readble = this.stream.readable.getReader();
     }
     /**
 	 * Split into sentence by punctuation
@@ -393,20 +387,34 @@ const $1d80c1e34dd115b9$var$PUNCTUATION = /、|。/;
         }
         return tokens;
     }
-    async tokenize(text) {
-        if (text === "") return [];
-        await this.writable.write(text);
-        const { value: value } = await this.readble.read();
-        return value;
+    async tokenize(text, flags) {
+        const stream = this.getTokenizeStream();
+        const writer = stream.writable.getWriter();
+        writer.write({
+            flag: flags,
+            content: text
+        });
+        writer.close();
+        const reader = stream.readable.getReader();
+        const tokens = [];
+        while(true){
+            const { value: value, done: done } = await reader.read();
+            if (value) tokens.push(...value.content);
+            if (done) break;
+        }
+        return tokens;
     }
     getTokenizeStream() {
         let buffer = [];
         const concatStream = new TransformStream({
-            transform: (token, controller)=>{
-                if (token.word_type === "EOS") {
-                    controller.enqueue(buffer);
+            transform: (data, controller)=>{
+                if (data.content.word_type === "EOS") {
+                    controller.enqueue({
+                        content: buffer,
+                        flag: data.flag
+                    });
                     buffer = [];
-                } else buffer.push(token);
+                } else buffer.push(data.content);
             }
         });
         const stream = this.getTokenStream();
@@ -418,19 +426,25 @@ const $1d80c1e34dd115b9$var$PUNCTUATION = /、|。/;
     getTokenStream() {
         const concatStream = new TransformStream({
             transform: (data, controller)=>{
-                controller.enqueue(data.data);
-                if (data.eos) controller.enqueue({
-                    word_id: -1,
-                    word_type: "EOS",
-                    word_position: data.data.word_position,
-                    surface_form: "",
-                    pos: "*",
-                    pos_detail_1: "*",
-                    pos_detail_2: "*",
-                    pos_detail_3: "*",
-                    conjugated_type: "*",
-                    conjugated_form: "*",
-                    basic_form: "*"
+                controller.enqueue({
+                    flag: data.flag,
+                    content: data.content.data
+                });
+                if (data.content.eos) controller.enqueue({
+                    flag: data.flag,
+                    content: {
+                        word_id: -1,
+                        word_type: "EOS",
+                        word_position: data.content.data.word_position,
+                        surface_form: "",
+                        pos: "*",
+                        pos_detail_1: "*",
+                        pos_detail_2: "*",
+                        pos_detail_3: "*",
+                        conjugated_type: "*",
+                        conjugated_form: "*",
+                        basic_form: "*"
+                    }
                 });
             }
         });
@@ -443,58 +457,64 @@ const $1d80c1e34dd115b9$var$PUNCTUATION = /、|。/;
     getStream() {
         const splitStream = new TransformStream({
             transform: (data, controller)=>{
-                const sentences = $1d80c1e34dd115b9$var$Tokenizer.splitByPunctuation(data);
-                for(let i = 0; i < sentences.length; i++){
-                    const sentence = sentences[i];
+                const sentences = $1d80c1e34dd115b9$var$Tokenizer.splitByPunctuation(data.content);
+                sentences.forEach((sentence, index)=>{
                     controller.enqueue({
-                        data: sentence,
-                        eos: sentences.length - 1 === i
+                        content: {
+                            data: sentence,
+                            eos: index === sentences.length - 1
+                        },
+                        flag: data.flag
                     });
-                }
+                });
             }
         });
         const latticeStream = new TransformStream({
             transform: (data, controller)=>{
                 controller.enqueue({
-                    data: this.getLattice(data.data),
-                    eos: data.eos
+                    content: {
+                        data: this.getLattice(data.content.data),
+                        eos: data.content.eos
+                    },
+                    flag: data.flag
                 });
             }
         });
         const viterbiStream = new TransformStream({
             transform: (data, controller)=>{
-                const nodes = this.viterbi_searcher.search(data.data);
-                for(let i = 0; i < nodes.length; i++){
-                    const node = nodes[i];
+                const nodes = this.viterbi_searcher.search(data.content.data);
+                nodes.forEach((node, index)=>{
                     controller.enqueue({
-                        data: node,
-                        eos: data.eos && nodes.length - 1 === i
+                        content: {
+                            data: node,
+                            eos: data.content.eos && index === nodes.length - 1
+                        },
+                        flag: data.flag
                     });
-                }
+                });
             }
         });
         const tokenizeStream = new TransformStream({
             transform: (data, controller)=>{
-                const node = data.data;
+                const node = data.content.data;
                 let token;
                 let features;
                 let features_line;
                 if (node.type === "KNOWN") {
                     features_line = this.token_info_dictionary.getFeatures(node.name.toString());
-                    if (features_line == null) features = [];
-                    else features = features_line.split(",");
+                    features = features_line ? features_line.split(",") : [];
                     token = this.formatter.formatEntry(node.name, node.start_pos, node.type, features);
                 } else if (node.type === "UNKNOWN") {
-                    // Unknown word
                     features_line = this.unknown_dictionary.getFeatures(node.name.toString());
-                    if (features_line == null) features = [];
-                    else features = features_line.split(",");
+                    features = features_line ? features_line.split(",") : [];
                     token = this.formatter.formatUnknownEntry(node.name, node.start_pos, node.type, features, node.surface_form);
-                } else // TODO User dictionary
-                token = this.formatter.formatEntry(node.name, node.start_pos, node.type, []);
+                } else token = this.formatter.formatEntry(node.name, node.start_pos, node.type, []);
                 controller.enqueue({
-                    data: token,
-                    eos: data.eos
+                    content: {
+                        data: token,
+                        eos: data.content.eos
+                    },
+                    flag: data.flag
                 });
             }
         });
@@ -659,7 +679,7 @@ function $4ead6c675ec7949c$export$95112ecaf0c008c1(arr1, arr2) {
 }
 
 
-function $412777b7fa41cd98$export$fcbc0da9b398f525(fst, alignmentSize = (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE) {
+function $412777b7fa41cd98$export$fcbc0da9b398f525(fst, alignmentSize = (0, $4ead6c675ec7949c$export$894ddd3ca336a680).FOUR_BYTES) {
     const bufferPool = new ArrayBuffer(4096);
     const view = new DataView(bufferPool);
     const arcs = [];
@@ -763,7 +783,7 @@ class $cd8ea557b7be61b3$var$Matcher {
     static BUF_SIZE = 1024;
     data;
     alignmentSize;
-    constructor(dictData, alignmentSize = (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE){
+    constructor(dictData, alignmentSize = (0, $4ead6c675ec7949c$export$894ddd3ca336a680).FOUR_BYTES){
         if (dictData) {
             this.data = dictData;
             this.alignmentSize = alignmentSize;
