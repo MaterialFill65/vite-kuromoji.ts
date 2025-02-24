@@ -53,4 +53,19 @@ describe("ViterbiBuilder",async () => {
             expect(nodes.map((node) => node.surface_form)).to.include("トトロ".slice(0, i));
         }
     });
+
+    const loader3 = new DictionaryLoader({"base":UNIDIC_DIR, "word":{"type":"FST","base":"fst.dat.gz"}});
+    const dic3 = await loader3.load();
+    const viterbi_builder3: ViterbiBuilder = new ViterbiBuilder(dic3);
+    it("UNIDIC Unknown word with FST", () => {
+        // lattice to have "ト", "トト", "トトロ"
+        const lattice = viterbi_builder3?.build("トトロ");
+        for (let i = 1; i < lattice.eos_pos; i++) {
+            const nodes = lattice.nodes_end_at[i];
+            if (nodes == null) {
+                continue;
+            }
+            expect(nodes.map((node) => node.surface_form)).to.include("トトロ".slice(0, i));
+        }
+    });
 });

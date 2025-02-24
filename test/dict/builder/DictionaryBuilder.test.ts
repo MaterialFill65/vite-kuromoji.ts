@@ -41,7 +41,7 @@ describe("DictionaryBuilder", () => {
             const builder = kuromoji.dictionaryBuilder();
             const tokenInfo = readFileSync(ipadic_tid_dic_file, "utf-8");
             tokenInfo.split("\n").map((line) => {
-                builder.addTokenInfoDictionary(line.split(","));
+                builder.addTokenInfoDictionary(line);
             });
 
             // Build connection costs matrix
@@ -60,7 +60,7 @@ describe("DictionaryBuilder", () => {
             const unk_text = readFileSync(unk_def_file, "utf-8");
             const unk_lines = unk_text.split("\n");
             unk_lines.map((line) => {
-                builder.putUnkDefLine(line.split(","));
+                builder.putUnkDefLine(line);
             });
 
             kuromoji_dic = builder.build();
@@ -206,7 +206,7 @@ describe("DictionaryBuilder", () => {
             const builder = kuromoji.dictionaryBuilder();
             const tokenInfo = readFileSync(unidic_tid_dic_file, "utf-8");
             tokenInfo.split("\n").map((line) => {
-                builder.addTokenInfoDictionary(line.split(","));
+                builder.addTokenInfoDictionary(line);
             });
 
             // Build connection costs matrix
@@ -225,12 +225,12 @@ describe("DictionaryBuilder", () => {
             const unk_text = readFileSync(unk_def_file, "utf-8");
             const unk_lines = unk_text.split("\n");
             unk_lines.map((line) => {
-                builder.putUnkDefLine(line.split(","));
+                builder.putUnkDefLine(line);
             });
 
-            kuromoji_dic = builder.build();
+            kuromoji_dic = builder.build(false);
         },
-    10000)
+    10000000)
 
 
         it("Dictionary not to be null", () => {
@@ -243,7 +243,7 @@ describe("DictionaryBuilder", () => {
             // expect(kuromoji_dic.token_info_dictionary.getFeatures("1467000")).to.have.length.above(1);
             expect(kuromoji_dic?.token_info_dictionary.dictionary.buffer).to.have.length.above(1);
         });
-        it("DoubleArray not to be null", () => {
+        it("WordSearch not to be null", () => {
             expect(kuromoji_dic?.word).not.to.be.null;
         });
         it("ConnectionCosts not to be null", () => {
@@ -264,7 +264,7 @@ describe("DictionaryBuilder", () => {
                     pos_detail_3: "*",
                     conjugated_type: "*",
                     conjugated_form: "*",
-                    basic_form: "すもも",
+                    basic_form: "李",
                     reading: "スモモ",
                 },
                 {

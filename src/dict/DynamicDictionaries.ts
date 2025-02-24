@@ -5,7 +5,7 @@ import TokenInfoDictionary from "./TokenInfoDictionary";
 import UnknownDictionary from "./UnknownDictionary";
 
 interface KeyValue {
-	k: string | Uint8Array;
+	k: string;
 	v: number;
 }
 

@@ -140,7 +140,7 @@ const promises = [
 ]
 
 await Promise.all(promises)
-const dic = builder.build(false);
+const dic = builder.buildAll();
 async function writeCompressedFile(path: string, data: Arrays) {
     const cs = new CompressionStream('gzip');
     const compressed = new Response(data).body?.pipeThrough(cs);
@@ -149,17 +149,17 @@ async function writeCompressedFile(path: string, data: Arrays) {
     console.log("Saved file:", `${path}.gz`)
 }
 
-// writeCompressedFile(`dict/${type}/base.dat`, (dic.word as DoubleArray).bc.getBaseBuffer());
-// writeCompressedFile(`dict/${type}/check.dat`, (dic.word as DoubleArray).bc.getCheckBuffer());
-writeCompressedFile(`dict/${type}/tid.dat`, dic.token_info_dictionary.dictionary.buffer);
-writeCompressedFile(`dict/${type}/tid_pos.dat`, dic.token_info_dictionary.pos_buffer.buffer);
-writeCompressedFile(`dict/${type}/tid_map.dat`, dic.token_info_dictionary.targetMapToBuffer());
-writeCompressedFile(`dict/${type}/cc.dat`, dic.connection_costs.buffer);
-writeCompressedFile(`dict/${type}/unk.dat`, dic.unknown_dictionary.dictionary.buffer);
-writeCompressedFile(`dict/${type}/unk_pos.dat`, dic.unknown_dictionary.pos_buffer.buffer);
-writeCompressedFile(`dict/${type}/unk_map.dat`, dic.unknown_dictionary.targetMapToBuffer());
-writeCompressedFile(`dict/${type}/unk_char.dat`, dic.unknown_dictionary.character_definition!.character_category_map);
-writeCompressedFile(`dict/${type}/unk_compat.dat`, dic.unknown_dictionary.character_definition!.compatible_category_map);
-writeCompressedFile(`dict/${type}/unk_invoke.dat`, dic.unknown_dictionary.character_definition!.invoke_definition_map!.toBuffer());
 
-writeCompressedFile(`dict/${type}/fst.dat`, (dic.word as Matcher).getBuffer());
+writeCompressedFile(`dict/${type}/fst.dat`, (dic.word.fst as Matcher).getBuffer());
+writeCompressedFile(`dict/${type}/base.dat`, (dic.word.trie as DoubleArray).bc.getBaseBuffer());
+writeCompressedFile(`dict/${type}/check.dat`, (dic.word.trie as DoubleArray).bc.getCheckBuffer());
+writeCompressedFile(`dict/${type}/tid.dat`, dic.dic.token_info_dictionary.dictionary.buffer);
+writeCompressedFile(`dict/${type}/tid_pos.dat`, dic.dic.token_info_dictionary.pos_buffer.buffer);
+writeCompressedFile(`dict/${type}/tid_map.dat`, dic.dic.token_info_dictionary.targetMapToBuffer());
+writeCompressedFile(`dict/${type}/cc.dat`, dic.dic.connection_costs.buffer);
+writeCompressedFile(`dict/${type}/unk.dat`, dic.dic.unknown_dictionary.dictionary.buffer);
+writeCompressedFile(`dict/${type}/unk_pos.dat`, dic.dic.unknown_dictionary.pos_buffer.buffer);
+writeCompressedFile(`dict/${type}/unk_map.dat`, dic.dic.unknown_dictionary.targetMapToBuffer());
+writeCompressedFile(`dict/${type}/unk_char.dat`, dic.dic.unknown_dictionary.character_definition!.character_category_map);
+writeCompressedFile(`dict/${type}/unk_compat.dat`, dic.dic.unknown_dictionary.character_definition!.compatible_category_map);
+writeCompressedFile(`dict/${type}/unk_invoke.dat`, dic.dic.unknown_dictionary.character_definition!.invoke_definition_map!.toBuffer());

@@ -21,7 +21,8 @@ Key Feature
 - UniDic(SudachiDict) compatibility
 - Blazing fast dictionary building (only Deno avaliable)
 - Cross platform compatibility (Node.js, Deno, Bun, Browser)
-
+- Prefix Search with Finite State Transducer(Minimal Acyclic Subsequential Transducer)
+  base.dat.gz (4.89MB) & check.dat.gz (4.08MB) -> fst.dat.gz (2.66MB)
 Directory
 ---------
 

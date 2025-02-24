@@ -59,21 +59,44 @@ class DictionaryBuilder {
 	build(isTrie: boolean = true) {
 		const dictionaries = this.buildTokenInfoDictionary(isTrie);
 		const unknown_dictionary = this.buildUnknownDictionary();
+		if (dictionaries.word.fst){
+			return new DynamicDictionaries(
+				dictionaries.word.fst,
+				dictionaries.token_info_dictionary,
+				this.cc_builder.build(),
+				unknown_dictionary,
+			);
+		} else {
+			return new DynamicDictionaries(
+				dictionaries.word.trie,
+				dictionaries.token_info_dictionary,
+				this.cc_builder.build(),
+				unknown_dictionary,
+			);
+		}
+		
+	}
+	buildAll() {
+		const dictionaries = this.buildTokenInfoDictionary(true, true);
+		const unknown_dictionary = this.buildUnknownDictionary();
 
-		return new DynamicDictionaries(
-			dictionaries.word,
-			dictionaries.token_info_dictionary,
-			this.cc_builder.build(),
-			unknown_dictionary,
-		);
+		return {
+			dic: new DynamicDictionaries(
+				undefined,
+				dictionaries.token_info_dictionary,
+				this.cc_builder.build(),
+				unknown_dictionary,
+			),
+			word: dictionaries.word
+		}
 	}
 	/**
 	 * Build TokenInfoDictionary
 	 *
 	 * @returns {{trie: WordSearch, token_info_dictionary: TokenInfoDictionary}}
 	 */
-	buildTokenInfoDictionary(isTrie: boolean): {
-		word: WordSearch;
+	buildTokenInfoDictionary(isTrie = true, all = false): {
+		word: {fst?: WordSearch, trie?: WordSearch};
 		token_info_dictionary: TokenInfoDictionary;
 	} {
 		const token_info_dictionary = new TokenInfoDictionary();
@@ -82,22 +105,35 @@ class DictionaryBuilder {
 		const dictionary_entries = token_info_dictionary.buildDictionary(
 			this.tid_entries,
 		);
+		let fst: Matcher | undefined
+		let trie: DoubleArray | undefined
 
-		const word: WordSearch = isTrie ? this.buildDoubleArray() : this.buildFST();
+		if (all) {
+			fst = this.buildFST()
+			trie = this.buildDoubleArray()
+		} else if (isTrie){
+			trie = this.buildDoubleArray()
+		}else{
+			fst = this.buildFST()
+		}
 
 		for (const token_info_id in dictionary_entries) {
 			const surface_form = dictionary_entries[token_info_id];
-			const trie_id = word.lookup(surface_form);
+			
+			const trie_id = (isTrie ? trie! : fst!).lookup(surface_form);
 
 			// Assertion
-			// if (trie_id < 0) {
-			//     console.log("Not Found:" + surface_form);
-			// }
+			if (trie_id < 0) {
+			    console.log("Not Found:" + surface_form);
+			}
 			token_info_dictionary.addMapping(trie_id, token_info_id);
 		}
 
 		return {
-			word,
+			word:{
+				trie: trie,
+				fst: fst
+			},
 			token_info_dictionary: token_info_dictionary,
 		};
 	}

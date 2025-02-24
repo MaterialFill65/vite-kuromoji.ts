@@ -29,16 +29,25 @@ interface fst {
 	readonly base: file;
 }
 export interface DetailedDicPath {
-	readonly tid: dict;
-	readonly unk: dict;
-	readonly cc: file;
-	readonly chr: chr;
-	readonly word: trie | fst;
+	tid: dict;
+	unk: dict;
+	cc: file;
+	chr: chr;
+	word: trie | fst;
+	base: string;
+}
+export interface SoftDicPath{
+	tid?: dict;
+	unk?: dict;
+	cc?: file;
+	chr?: chr;
+	word?: trie | fst;
 	readonly base: string;
 }
+
 interface manifest {
 	readonly dicType?: dicType;
-	dicPath?: DetailedDicPath | string;
+	dicPath?: SoftDicPath | string;
 }
 
 export default manifest;

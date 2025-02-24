@@ -147,14 +147,16 @@ class Matcher implements WordSearch {
 			const [arc, incr] = this.nextArc(pos);
 
 			if (arc.flag & FLAG_FINAL_ARC) {
-				accept = i >= word.length;
-				arc.finalOutput.forEach((out) => {
-					const newOutput = new Uint8Array(buf.length + out.length);
-					newOutput.set(buf);
-					newOutput.set(out, buf.length);
-					outputs.add(newOutput);
-				});
-
+				accept = (i === word.length);
+				if(accept){
+					arc.finalOutput.forEach((out) => {
+						const newOutput = new Uint8Array(buf.length + out.length);
+						newOutput.set(buf);
+						newOutput.set(out, buf.length);
+						outputs.add(newOutput);
+					});
+				}
+				
 				if (arc.flag & FLAG_LAST_ARC || i >= word.length) {
 					break;
 				}
@@ -195,12 +197,7 @@ class Matcher implements WordSearch {
 		if(!accept)
 			return NOT_FOUND
 
-		let result: Uint8Array | undefined
-		encoded_word.forEach(e=>{
-			result = e
-		})
-		if (!result)
-			return NOT_FOUND
+		let result: Uint8Array = Array.from(encoded_word)[0]
 
 		return parseInt(textDecoder.decode(result))
 	}
@@ -208,17 +205,26 @@ class Matcher implements WordSearch {
 	commonPrefixSearch(word: string): externalKeyValue[] {
 		const textEncoder = new TextEncoder();
 		const textDecoder = new TextDecoder();
-		const encoded_word = textEncoder.encode(word);
-		const [accepted, result] = this.run(encoded_word);
-		if (!accepted) {
-			return [];
-		}
-		return Array.from(result).map<externalKeyValue>((enc_output) => {
-			return {
-				k: word,
+		const buffer = textEncoder.encode(word);
+
+		const searchResult: externalKeyValue[] = []
+		for (let i = 1; i <= buffer.length; i++) {
+			const [accepted, result] = this.run(buffer.slice(0, i));
+			if(!accepted){
+				continue;
+			}
+			const arrayed = Array.from(result)
+
+			const tmp_searchResult = arrayed.map<externalKeyValue>((enc_output) =>
+			({
+				k: textDecoder.decode(buffer.slice(0, i)),
 				v: Number.parseInt(textDecoder.decode(enc_output)),
-			};
-		});
+			})
+			)
+			searchResult.push(tmp_searchResult[0]);
+		}
+		
+		return searchResult
 	}
 
 	private nextArc(addr: number): [Arc, number] {
@@ -428,8 +434,8 @@ export function createMinimumTransducer(inputs: internalKeyValue[]): FST {
 	};
 
 	let processed = 0;
-	let current_word: Uint8Array;
-	let current_output: Uint8Array;
+	let current_word: Uint8Array | undefined;
+	let current_output: Uint8Array | undefined;
 	// main loop
 	for (const input of inputs) {
 		current_word = input.k;
@@ -519,11 +525,13 @@ export function createMinimumTransducer(inputs: internalKeyValue[]): FST {
 			last_printed = elapsed;
 		}
 	}
-
-	// minimize the last word
-	for (let i = current_word!.length; i > 0; i--) {
-		buffer[i - 1].setTransition(prev_word[i - 1], findMinimized(buffer[i]));
+	if (current_word){
+		// minimize the last word
+		for (let i = current_word.length; i > 0; i--) {
+			buffer[i - 1].setTransition(prev_word[i - 1], findMinimized(buffer[i]));
+		}
 	}
+	
 
 	findMinimized(buffer[0]);
 	console.log(`num of state: ${fstDict.size()}`);

@@ -40,3 +40,6 @@ publish
 # Others
 .DS_Store
 resources
+
+# Too Large resource
+**/unidic_matrix.def

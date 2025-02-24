@@ -37,8 +37,13 @@ interface BaseAndCheck {
 	dump(): string;
 }
 
-interface KeyValue {
-	k: string | Uint8Array;
+interface external_KeyValue {
+	k: string;
+	v: number;
+}
+
+interface internal_KeyValue {
+	k: Uint8Array;
 	v: number;
 }
 
@@ -220,8 +225,8 @@ const newBC = (initial_size = 1024): BaseAndCheck => {
  */
 export default class DoubleArrayBuilder {
 	bc: BaseAndCheck;
-	keys: KeyValue[];
-	constructor(initial_size: number | undefined) {
+	keys: (external_KeyValue | internal_KeyValue)[];
+	constructor(initial_size?: number ) {
 		this.bc = newBC(initial_size); // BASE and CHECK
 		this.keys = [];
 	}
@@ -233,7 +238,7 @@ export default class DoubleArrayBuilder {
 	 * @param {Number} record Integer value from 0 to max signed integer number - 1
 	 */
 	append(key: string, record: number) {
-		this.keys.push({ k: key, v: record });
+		this.keys.push({ k: key, v: record } as external_KeyValue);
 		return this;
 	}
 	/**
@@ -243,13 +248,13 @@ export default class DoubleArrayBuilder {
 	 * 'k' is a key string, 'v' is a record assigned to that key.
 	 * @return {DoubleArray} Compiled double array
 	 */
-	build(keys: KeyValue[] = this.keys, sorted = false): DoubleArray {
+	build(keys: external_KeyValue[] = this.keys as external_KeyValue[], sorted = false): DoubleArray {
 		if (keys == null) {
 			return new DoubleArray(this.bc);
 		}
 
 		// Convert key string to ArrayBuffer
-		const buff_keys = keys.map((k: KeyValue) => {
+		const buff_keys: internal_KeyValue[] = keys.map((k: external_KeyValue) => {
 			return {
 				k: stringToUtf8Bytes(k.k + TERM_CHAR),
 				v: k.v,
@@ -536,13 +541,13 @@ export class DoubleArray implements WordSearch {
 	 * @return {Array} Each result object has 'k' and 'v' (key and record,
 	 * respectively) properties assigned to matched string
 	 */
-	commonPrefixSearch(key: string): KeyValue[] {
+	commonPrefixSearch(key: string): external_KeyValue[] {
 		const buffer = stringToUtf8Bytes(key);
 
 		let parent = ROOT_ID;
 		let child = NOT_FOUND;
 
-		const result: KeyValue[] = [];
+		const result: external_KeyValue[] = [];
 
 		for (let i = 0; i < buffer.length; i++) {
 			const code = buffer[i];
@@ -558,7 +563,7 @@ export class DoubleArray implements WordSearch {
 				if (grand_child !== NOT_FOUND) {
 					const base = this.bc.getBase(grand_child);
 
-					const r: KeyValue = {
+					const r: external_KeyValue = {
 						k: "",
 						v: 0,
 					};
@@ -754,7 +759,7 @@ const utf8BytesToString = (bytes: Uint8Array): string => {
 };
 
 // public methods
-export function builder(initial_size: number) {
+export function builder(initial_size?: number): DoubleArrayBuilder {
 	return new DoubleArrayBuilder(initial_size);
 }
 export function load(base_buffer: Arrays, check_buffer: Arrays) {

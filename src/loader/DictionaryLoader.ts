@@ -24,7 +24,51 @@ class DictionaryLoader {
 		let dicPath: DetailedDicPath;
 		dic_path ??= "/dict";
 		if (typeof dic_path !== "string") {
-			dicPath = dic_path;
+			dicPath = {
+				tid: {
+					dict: "tid.dat.gz",
+					map: "tid_map.dat.gz",
+					pos: "tid_pos.dat.gz",
+				},
+				unk: {
+					dict: "unk.dat.gz",
+					map: "unk_map.dat.gz",
+					pos: "unk_pos.dat.gz",
+				},
+				cc: "cc.dat.gz",
+				chr: {
+					char: "unk_char.dat.gz",
+					compat: "unk_compat.dat.gz",
+					invoke: "unk_invoke.dat.gz",
+				},
+				word: {
+					type: "Trie",
+					base: "base.dat.gz",
+					check: "check.dat.gz",
+				},
+				base: "/dict",
+			};
+			if (dic_path.word !== undefined) {
+				dicPath.word = dic_path.word;
+			}
+			if (dic_path.tid !== undefined) {
+				dicPath.tid = dic_path.tid;
+			}
+			if (dic_path.unk !== undefined) {
+				dicPath.unk = dic_path.unk;
+			}
+
+			if (dic_path.cc !== undefined) {
+				dicPath.cc = dic_path.cc;
+			}
+
+			if (dic_path.chr !== undefined) {
+				dicPath.chr = dic_path.chr;
+			}
+
+			if (dic_path.base !== undefined) {
+				dicPath.base = dic_path.base;
+			}
 		} else {
 			dicPath = {
 				tid: {

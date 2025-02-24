@@ -197,71 +197,110 @@ describe("Tokenizer for IPADic", async () => {
     });
 });
 
-describe("Tokenizer for UniDic", async () => {
+describe("Tokenizer for UniDic with FST", async () => {
     let tokenizer: Tokenizer
     beforeAll(async () => {
-        tokenizer = await kuromoji.build({ dicPath: UNIDIC_DIR, dicType: "UniDic" });
+        tokenizer = await kuromoji.build({ dicPath: { "base": UNIDIC_DIR, "word":{"type":"FST","base":"fst.dat.gz"}}, dicType: "UniDic" });
         expect(tokenizer).to.be.a("object");
-    });
+    }, 100000000);
 
     it("Sentence すもももももももものうち is tokenized properly", () => {
         const path = tokenizer.tokenize("すもももももももものうち");
         const expected_tokens = [
             {
-                word_type: 'KNOWN',
+                word_type: "KNOWN",
                 word_position: 1,
-                surface_form: 'すもももももも',
-                pos: '名詞',
-                pos_detail_1: '固有名詞',
-                pos_detail_2: '一般',
-                pos_detail_3: '*',
-                conjugated_type: '*',
-                conjugated_form: '*',
-                basic_form: 'すもももももも',
-                reading: 'スモモモモモモ'
-            }, 
+                surface_form: "すもも",
+                pos: "名詞",
+                pos_detail_1: "普通名詞",
+                pos_detail_2: "一般",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "李",
+                reading: "スモモ",
+            },
             {
-            word_type: 'KNOWN',
-            word_position: 8,
-            surface_form: 'もも',
-            pos: '名詞',
-            pos_detail_1: '普通名詞',
-            pos_detail_2: '一般',
-            pos_detail_3: '*',
-            conjugated_type: '*',
-            conjugated_form: '*',
-            basic_form: 'もも',
-            reading: 'モモ'
-        },
-        {
-            word_type: 'KNOWN',
-            word_position: 10,
-            surface_form: 'の',
-            pos: '助詞',
-            pos_detail_1: '格助詞',
-            pos_detail_2: '*',
-            pos_detail_3: '*',
-            conjugated_type: '*',
-            conjugated_form: '*',
-            basic_form: 'の',
-            reading: 'ノ'
-        },
-        {
-            word_type: 'KNOWN',
-            word_position: 11,
-            surface_form: 'うち',
-            pos: '名詞',
-            pos_detail_1: '普通名詞',
-            pos_detail_2: '副詞可能',
-            pos_detail_3: '*',
-            conjugated_type: '*',
-            conjugated_form: '*',
-            basic_form: 'うち',
-            reading: 'ウチ'
-        }
+                word_type: "KNOWN",
+                word_position: 4,
+                surface_form: "も",
+                pos: "助詞",
+                pos_detail_1: "係助詞",
+                pos_detail_2: "*",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "も",
+                reading: "モ",
+            },
+            {
+                word_type: "KNOWN",
+                word_position: 5,
+                surface_form: "もも",
+                pos: "名詞",
+                pos_detail_1: "普通名詞",
+                pos_detail_2: "一般",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "もも",
+                reading: "モモ",
+            },
+            {
+                word_type: "KNOWN",
+                word_position: 7,
+                surface_form: "も",
+                pos: "助詞",
+                pos_detail_1: "係助詞",
+                pos_detail_2: "*",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "も",
+                reading: "モ",
+            },
+            {
+                word_type: "KNOWN",
+                word_position: 8,
+                surface_form: "もも",
+                pos: "名詞",
+                pos_detail_1: "普通名詞",
+                pos_detail_2: "一般",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "もも",
+                reading: "モモ",
+            },
+            {
+                word_type: "KNOWN",
+                word_position: 10,
+                surface_form: "の",
+                pos: "助詞",
+                pos_detail_1: "格助詞",
+                pos_detail_2: "*",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "の",
+                reading: "ノ",
+            },
+            {
+                word_type: "KNOWN",
+                word_position: 11,
+                surface_form: "うち",
+                pos: "名詞",
+                pos_detail_1: "普通名詞",
+                pos_detail_2: "副詞可能",
+                pos_detail_3: "*",
+                conjugated_type: "*",
+                conjugated_form: "*",
+                basic_form: "うち",
+                reading: "ウチ",
+            }
         ];
         console.log(path)
-        expect(path).to.have.length(4);
+        expect(path).to.have.length(7);
 
         for (let i = 0; i < expected_tokens.length; i++) {
             const expected_token: any = expected_tokens[i];
@@ -285,9 +324,10 @@ describe("Tokenizer for UniDic", async () => {
     });
     it("Sentence include UTF-16 surrogate pair", () => {
         const path = tokenizer.tokenize("𠮷野屋");
-        expect(path).to.have.length(2);
+        expect(path).to.have.length(3);
         expect(path[0].word_position).to.eql(1);
         expect(path[1].word_position).to.eql(2);
+        expect(path[2].word_position).to.eql(3);
     });
     it("Sentence include punctuation あ、あ。あ、あ。 returns correct positions", () => {
         const path = tokenizer.tokenize("あ、あ。あ、あ。");

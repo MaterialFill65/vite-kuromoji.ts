@@ -1,4 +1,4 @@
-import kuromoji from "../../build/kuromoji";
+import kuromoji from "../../build/kuromoji.js";
 const DIC_URL = "../dict/unidic";
 (async () => {
     const input = document.querySelector("#input");

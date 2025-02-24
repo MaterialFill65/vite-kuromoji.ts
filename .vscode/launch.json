@@ -1,0 +1,42 @@
+{
+    // IntelliSense を使用して利用可能な属性を学べます。
+    // 既存の属性の説明をホバーして表示します。
+    // 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Node",
+            "program": "${workspaceFolder}/example/load-node.ts",
+            "runtimeExecutable": "",
+            "cwd": "${workspaceFolder}",
+            "args": []
+        },
+        {
+            "request": "launch",
+            "name": "Launch Deno",
+            "type": "node",
+            "program": "${workspaceFolder}/example/load-deno.ts",
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "runtimeExecutable": "deno",
+            "runtimeArgs": [
+                "run",
+                "--unstable-sloppy-imports",
+                "--inspect-wait",
+                "--unstable",
+                "--inspect-brk",
+                "--allow-all"
+            ],
+            "attachSimplePort": 9229
+        },
+        {
+            "request": "launch",
+            "name": "Launch Bun",
+            "type": "bun",
+            "program": "${workspaceFolder}/example/load-bun.ts",
+            "cwd": "${workspaceFolder}",
+        }
+    ]
+}

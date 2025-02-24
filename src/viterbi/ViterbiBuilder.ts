@@ -19,7 +19,6 @@ import type DynamicDictionaries from "../dict/DynamicDictionaries";
 import type { WordSearch } from "../dict/DynamicDictionaries";
 import type TokenInfoDictionary from "../dict/TokenInfoDictionary";
 import type UnknownDictionary from "../dict/UnknownDictionary";
-import type { DoubleArray } from "../util/DoubleArray";
 import SurrogateAwareString from "../util/SurrogateAwareString";
 import ViterbiLattice from "./ViterbiLattice";
 import ViterbiNode from "./ViterbiNode";
@@ -48,19 +47,23 @@ class ViterbiBuilder {
 		const sentence = new SurrogateAwareString(sentence_str);
 
 		let key: string;
-		let trie_id: string | number;
+		let trie_id: number;
 		let left_id: number;
 		let right_id: number;
 		let word_cost: number;
 		for (let pos = 0; pos < sentence.length; pos++) {
 			const tail = sentence.slice(pos);
 			const vocabulary = this.word.commonPrefixSearch(tail);
+			// console.log(vocabulary)
+			// console.log(vocabulary.length)
 			for (let n = 0; n < vocabulary.length; n++) {
 				// Words in dictionary do not have surrogate pair (only UCS2 set)
 				trie_id = vocabulary[n].v;
-				key = vocabulary[n].k as string;
+				key = vocabulary[n].k;
 
 				const token_info_ids = this.token_info_dictionary.target_map[trie_id];
+				// console.log(key)
+				// console.log(token_info_ids)
 				for (let i = 0; i < token_info_ids.length; i++) {
 					const token_info_id = Number.parseInt(token_info_ids[i].toString());
 

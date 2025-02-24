@@ -3,7 +3,13 @@ const DIC_DIR = "dict/unidic/";
 
 // Load dictionaries from file, and prepare tokenizer
 const tokenizer = await kuromoji.build({
-  dicPath: DIC_DIR,
+  dicPath: {
+    "base": DIC_DIR,
+    "word": {
+      "type": "FST",
+      "base": "fst.dat.gz"
+    }
+  },
   dicType: "UniDic",
 })
 
