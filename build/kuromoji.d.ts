@@ -2,8 +2,14 @@ interface externalKeyValue {
     k: string;
     v: number;
 }
+const enum AlignmentSize {
+    ONE_BYTE = 1,
+    TWO_BYTES = 2,
+    FOUR_BYTES = 4,
+    EIGHT_BYTES = 8
+}
 declare class Matcher implements WordSearch {
-    constructor(dictData?: Uint8Array);
+    constructor(dictData?: Uint8Array, alignmentSize?: AlignmentSize);
     run(word: Uint8Array): [boolean, Set<Uint8Array>];
     lookup(key: string): number;
     commonPrefixSearch(word: string): externalKeyValue[];
@@ -392,6 +398,9 @@ declare class Tokenizer {
     viterbi_builder: ViterbiBuilder;
     viterbi_searcher: ViterbiSearcher;
     formatter: Formatter;
+    stream: TransformStream<string, Token[]>;
+    writable: WritableStreamDefaultWriter<string>;
+    readble: ReadableStreamDefaultReader<Token[]>;
     constructor(dic: DynamicDictionaries, formatter: Formatter);
     /**
      * Split into sentence by punctuation
@@ -404,7 +413,10 @@ declare class Tokenizer {
      * @param {string} text Input text to analyze
      * @returns {Array} Tokens
      */
-    tokenize(text: string): Token[];
+    tokenizeSync(text: string): Token[];
+    tokenize(text: string): Promise<Token[]>;
+    getTokenizeStream(): TransformStream<string, Token[]>;
+    getTokenStream(): TransformStream<string, Token>;
     tokenizeForSentence(sentence: string, tokens?: Token[]): Token[];
     /**
      * Build word lattice

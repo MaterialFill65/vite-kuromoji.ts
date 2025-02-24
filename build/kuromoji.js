@@ -348,12 +348,18 @@ const $1d80c1e34dd115b9$var$PUNCTUATION = /、|。/;
     viterbi_builder;
     viterbi_searcher;
     formatter;
+    stream;
+    writable;
+    readble;
     constructor(dic, formatter){
         this.token_info_dictionary = dic.token_info_dictionary;
         this.unknown_dictionary = dic.unknown_dictionary;
         this.viterbi_builder = new (0, $a5dea0986113324f$export$2e2bcd8739ae039)(dic);
         this.viterbi_searcher = new (0, $f2cbeb1834e5877a$export$2e2bcd8739ae039)(dic.connection_costs);
         this.formatter = formatter;
+        this.stream = this.getTokenizeStream();
+        this.writable = this.stream.writable.getWriter();
+        this.readble = this.stream.readable.getReader();
     }
     /**
 	 * Split into sentence by punctuation
@@ -378,7 +384,7 @@ const $1d80c1e34dd115b9$var$PUNCTUATION = /、|。/;
 	 * Tokenize text
 	 * @param {string} text Input text to analyze
 	 * @returns {Array} Tokens
-	 */ tokenize(text) {
+	 */ tokenizeSync(text) {
         const sentences = $1d80c1e34dd115b9$var$Tokenizer.splitByPunctuation(text);
         const tokens = [];
         for(let i = 0; i < sentences.length; i++){
@@ -386,6 +392,116 @@ const $1d80c1e34dd115b9$var$PUNCTUATION = /、|。/;
             this.tokenizeForSentence(sentence, tokens);
         }
         return tokens;
+    }
+    async tokenize(text) {
+        if (text === "") return [];
+        await this.writable.write(text);
+        const { value: value } = await this.readble.read();
+        return value;
+    }
+    getTokenizeStream() {
+        let buffer = [];
+        const concatStream = new TransformStream({
+            transform: (token, controller)=>{
+                if (token.word_type === "EOS") {
+                    controller.enqueue(buffer);
+                    buffer = [];
+                } else buffer.push(token);
+            }
+        });
+        const stream = this.getTokenStream();
+        return {
+            writable: stream.writable,
+            readable: stream.readable.pipeThrough(concatStream)
+        };
+    }
+    getTokenStream() {
+        const concatStream = new TransformStream({
+            transform: (data, controller)=>{
+                controller.enqueue(data.data);
+                if (data.eos) controller.enqueue({
+                    word_id: -1,
+                    word_type: "EOS",
+                    word_position: data.data.word_position,
+                    surface_form: "",
+                    pos: "*",
+                    pos_detail_1: "*",
+                    pos_detail_2: "*",
+                    pos_detail_3: "*",
+                    conjugated_type: "*",
+                    conjugated_form: "*",
+                    basic_form: "*"
+                });
+            }
+        });
+        const stream = this.getStream();
+        return {
+            writable: stream.writable,
+            readable: stream.readable.pipeThrough(concatStream)
+        };
+    }
+    getStream() {
+        const splitStream = new TransformStream({
+            transform: (data, controller)=>{
+                const sentences = $1d80c1e34dd115b9$var$Tokenizer.splitByPunctuation(data);
+                for(let i = 0; i < sentences.length; i++){
+                    const sentence = sentences[i];
+                    controller.enqueue({
+                        data: sentence,
+                        eos: sentences.length - 1 === i
+                    });
+                }
+            }
+        });
+        const latticeStream = new TransformStream({
+            transform: (data, controller)=>{
+                controller.enqueue({
+                    data: this.getLattice(data.data),
+                    eos: data.eos
+                });
+            }
+        });
+        const viterbiStream = new TransformStream({
+            transform: (data, controller)=>{
+                const nodes = this.viterbi_searcher.search(data.data);
+                for(let i = 0; i < nodes.length; i++){
+                    const node = nodes[i];
+                    controller.enqueue({
+                        data: node,
+                        eos: data.eos && nodes.length - 1 === i
+                    });
+                }
+            }
+        });
+        const tokenizeStream = new TransformStream({
+            transform: (data, controller)=>{
+                const node = data.data;
+                let token;
+                let features;
+                let features_line;
+                if (node.type === "KNOWN") {
+                    features_line = this.token_info_dictionary.getFeatures(node.name.toString());
+                    if (features_line == null) features = [];
+                    else features = features_line.split(",");
+                    token = this.formatter.formatEntry(node.name, node.start_pos, node.type, features);
+                } else if (node.type === "UNKNOWN") {
+                    // Unknown word
+                    features_line = this.unknown_dictionary.getFeatures(node.name.toString());
+                    if (features_line == null) features = [];
+                    else features = features_line.split(",");
+                    token = this.formatter.formatUnknownEntry(node.name, node.start_pos, node.type, features, node.surface_form);
+                } else // TODO User dictionary
+                token = this.formatter.formatEntry(node.name, node.start_pos, node.type, []);
+                controller.enqueue({
+                    data: token,
+                    eos: data.eos
+                });
+            }
+        });
+        return {
+            writable: splitStream.writable,
+            readable: splitStream.readable.pipeThrough(latticeStream).pipeThrough(viterbiStream).pipeThrough(tokenizeStream)
+        };
     }
     tokenizeForSentence(sentence, tokens = []) {
         const lattice = this.getLattice(sentence);
@@ -430,7 +546,7 @@ const $4ead6c675ec7949c$export$281fd4b195eed79 = 1;
 const $4ead6c675ec7949c$export$95b87cd1974c309d = 2;
 const $4ead6c675ec7949c$export$cf6a49cbc8bcfc48 = 16;
 const $4ead6c675ec7949c$export$7efbea5e16f33691 = 32;
-const $4ead6c675ec7949c$var$NOT_FOUND = -1;
+const $4ead6c675ec7949c$export$8bca792d963eb0ef = -1;
 class $4ead6c675ec7949c$export$7254cc27399e90bd {
     id;
     final;
@@ -503,52 +619,185 @@ class $4ead6c675ec7949c$export$6f2cf46b44d412d7 {
         });
     }
 }
-class $4ead6c675ec7949c$export$20214574ec94167d {
+var $4ead6c675ec7949c$export$894ddd3ca336a680 = /*#__PURE__*/ function(AlignmentSize) {
+    AlignmentSize[AlignmentSize["ONE_BYTE"] = 1] = "ONE_BYTE";
+    AlignmentSize[AlignmentSize["TWO_BYTES"] = 2] = "TWO_BYTES";
+    AlignmentSize[AlignmentSize["FOUR_BYTES"] = 4] = "FOUR_BYTES";
+    AlignmentSize[AlignmentSize["EIGHT_BYTES"] = 8] = "EIGHT_BYTES";
+    return AlignmentSize;
+}({});
+function $4ead6c675ec7949c$export$29db80b516530aad(size, alignment) {
+    return Math.ceil(size / alignment) * alignment;
+}
+function $4ead6c675ec7949c$export$c3586a02be60dce4(s1, s2) {
+    let i = 0;
+    while(i < s1.length && i < s2.length && s1[i] === s2[i])i++;
+    return i;
+}
+function $4ead6c675ec7949c$export$66246faf9d35a11a(state, id) {
+    const newState = new $4ead6c675ec7949c$export$7254cc27399e90bd(id);
+    newState.setFinal(state.isFinal());
+    newState.setStateOutput(new Set(state.stateOutput())); // Shallow copy of Set, but Uint8Arrays are immutable
+    for(const charCode in state.transMap)if (state.transMap.hasOwnProperty(charCode)) {
+        const transition = state.transMap[charCode];
+        newState.setTransition(Number(charCode), transition.state); // Assuming state IDs are handled correctly later during minimization
+        newState.setOutput(Number(charCode), transition.output); // Shallow copy of Uint8Array, but they are immutable
+    }
+    return newState;
+}
+function $4ead6c675ec7949c$export$95112ecaf0c008c1(arr1, arr2) {
+    const len1 = arr1.length;
+    const len2 = arr2.length;
+    const len = Math.min(len1, len2);
+    for(let i = 0; i < len; i++){
+        if (arr1[i] < arr2[i]) return -1;
+        else if (arr1[i] > arr2[i]) return 1;
+    }
+    if (len1 < len2) return -1;
+    else if (len1 > len2) return 1;
+    else return 0;
+}
+
+
+function $412777b7fa41cd98$export$fcbc0da9b398f525(fst, alignmentSize = (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE) {
+    const bufferPool = new ArrayBuffer(4096);
+    const view = new DataView(bufferPool);
+    const arcs = [];
+    const address = {};
+    let pos = 0;
+    // メモリ効率化のためのバッファ再利用
+    const getBuffer = (size)=>{
+        if (size <= bufferPool.byteLength) return bufferPool;
+        return new ArrayBuffer(size);
+    };
+    for (const s of Array.from(fst.dictionary.values())){
+        const sortedTrans = Object.entries(s.transMap).sort((a, b)=>Number(b[0]) - Number(a[0]));
+        for(let i = 0; i < sortedTrans.length; i++){
+            const [c, v] = sortedTrans[i];
+            const buffer = getBuffer(1024);
+            const view = new DataView(buffer);
+            let offset = 0;
+            let flag = 0;
+            if (i === 0) flag |= (0, $4ead6c675ec7949c$export$95b87cd1974c309d);
+            if (v.output.length > 0) flag |= (0, $4ead6c675ec7949c$export$cf6a49cbc8bcfc48);
+            if (alignmentSize === (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE) {
+                view.setInt8(offset++, flag);
+                view.setInt8(offset++, Number(c));
+            } else {
+                const flagAndLabel = flag << 24 | Number(c) << 16;
+                view.setInt32(offset, flagAndLabel);
+                offset += alignmentSize;
+            }
+            if (v.output.length > 0) {
+                if (alignmentSize === (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE) view.setInt8(offset++, v.output.length);
+                else {
+                    view.setInt32(offset, v.output.length);
+                    offset += alignmentSize;
+                }
+                new Uint8Array(buffer, offset).set(v.output);
+                offset += (0, $4ead6c675ec7949c$export$29db80b516530aad)(v.output.length, alignmentSize);
+            }
+            const nextAddr = address[v.state.id];
+            const target = pos + offset + (alignmentSize === (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE ? 1 : alignmentSize) - nextAddr;
+            if (alignmentSize === (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE) view.setInt8(offset++, target);
+            else {
+                view.setInt32(offset, target);
+                offset += alignmentSize;
+            }
+            arcs.push(new Uint8Array(buffer.slice(0, offset)));
+            pos += offset;
+        }
+        if (s.isFinal()) {
+            const buffer = getBuffer(1024);
+            const view = new DataView(buffer);
+            let offset = 0;
+            let flag = (0, $4ead6c675ec7949c$export$281fd4b195eed79);
+            const finalOutputs = Array.from(s.finalOutput);
+            const hasOutput = finalOutputs.some((out)=>out.length > 0);
+            if (hasOutput) flag |= (0, $4ead6c675ec7949c$export$7efbea5e16f33691);
+            if (!Object.keys(s.transMap).length) flag |= (0, $4ead6c675ec7949c$export$95b87cd1974c309d);
+            if (alignmentSize === (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE) view.setInt8(offset++, flag);
+            else {
+                view.setInt32(offset, flag << 24);
+                offset += alignmentSize;
+            }
+            if (hasOutput) {
+                const separator = new Uint8Array([
+                    0x1a
+                ]);
+                const totalLength = finalOutputs.reduce((sum, curr)=>sum + curr.length, 0) + (finalOutputs.length - 1);
+                if (alignmentSize === (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE) view.setInt8(offset++, totalLength);
+                else {
+                    view.setInt32(offset, totalLength);
+                    offset += alignmentSize;
+                }
+                for(let i = 0; i < finalOutputs.length; i++){
+                    new Uint8Array(buffer, offset).set(finalOutputs[i]);
+                    offset += finalOutputs[i].length;
+                    if (i < finalOutputs.length - 1) {
+                        new Uint8Array(buffer, offset).set(separator);
+                        offset += 1;
+                    }
+                }
+                offset = (0, $4ead6c675ec7949c$export$29db80b516530aad)(offset, alignmentSize);
+            }
+            arcs.push(new Uint8Array(buffer.slice(0, offset)));
+            pos += offset;
+        }
+        address[s.id] = pos;
+    }
+    arcs.reverse();
+    const totalLength = arcs.reduce((sum, arr)=>sum + arr.length, 0);
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const arc of arcs){
+        result.set(arc, offset);
+        offset += arc.length;
+    }
+    return result;
+}
+
+
+
+class $cd8ea557b7be61b3$var$Matcher {
     static BUF_SIZE = 1024;
     data;
-    constructor(dictData){
-        if (dictData) this.data = dictData;
-        else throw new Error("dictData must be provided");
+    alignmentSize;
+    constructor(dictData, alignmentSize = (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE){
+        if (dictData) {
+            this.data = dictData;
+            this.alignmentSize = alignmentSize;
+        } else throw new Error("dictData must be provided");
     }
     run(word) {
         const outputs = new Set();
         let accept = false;
-        let buf = new Uint8Array();
+        const bufferPool = new Uint8Array($cd8ea557b7be61b3$var$Matcher.BUF_SIZE);
+        let bufferSize = 0;
         let i = 0;
         let pos = 0;
         while(pos < this.data.length){
             const [arc, incr] = this.nextArc(pos);
-            if (arc.flag & $4ead6c675ec7949c$export$281fd4b195eed79) {
+            if (arc.flag & (0, $4ead6c675ec7949c$export$281fd4b195eed79)) {
                 accept = i === word.length;
                 if (accept) arc.finalOutput.forEach((out)=>{
-                    const newOutput = new Uint8Array(buf.length + out.length);
-                    newOutput.set(buf);
-                    newOutput.set(out, buf.length);
+                    const newOutput = new Uint8Array(bufferSize + out.length);
+                    newOutput.set(bufferPool.subarray(0, bufferSize));
+                    newOutput.set(out, bufferSize);
                     outputs.add(newOutput);
                 });
-                if (arc.flag & $4ead6c675ec7949c$export$95b87cd1974c309d || i >= word.length) break;
+                if (arc.flag & (0, $4ead6c675ec7949c$export$95b87cd1974c309d) || i >= word.length) break;
                 pos += incr;
-            } else if (arc.flag & $4ead6c675ec7949c$export$95b87cd1974c309d) {
+            } else if (arc.flag & (0, $4ead6c675ec7949c$export$95b87cd1974c309d) || word[i] === arc.label) {
                 if (i >= word.length) break;
                 if (word[i] === arc.label) {
-                    const newBuf = new Uint8Array(buf.length + arc.output.length);
-                    newBuf.set(buf);
-                    newBuf.set(arc.output, buf.length);
-                    buf = newBuf;
+                    bufferPool.set(arc.output, bufferSize);
+                    bufferSize += arc.output.length;
                     i++;
                     pos += arc.target;
-                } else break;
-            } else {
-                if (i >= word.length) break;
-                if (word[i] === arc.label) {
-                    const newBuf = new Uint8Array(buf.length + arc.output.length);
-                    newBuf.set(buf);
-                    newBuf.set(arc.output, buf.length);
-                    buf = newBuf;
-                    i++;
-                    pos += arc.target;
-                } else pos += incr;
-            }
+                } else if (arc.flag & (0, $4ead6c675ec7949c$export$95b87cd1974c309d)) break;
+                else pos += incr;
+            } else pos += incr;
         }
         return [
             accept,
@@ -559,7 +808,7 @@ class $4ead6c675ec7949c$export$20214574ec94167d {
         const textEncoder = new TextEncoder();
         const textDecoder = new TextDecoder();
         const [accept, encoded_word] = this.run(textEncoder.encode(key));
-        if (!accept) return $4ead6c675ec7949c$var$NOT_FOUND;
+        if (!accept) return 0, $4ead6c675ec7949c$export$8bca792d963eb0ef;
         let result = Array.from(encoded_word)[0];
         return parseInt(textDecoder.decode(result));
     }
@@ -591,27 +840,36 @@ class $4ead6c675ec7949c$export$20214574ec94167d {
             target: 0
         };
         let pos = addr;
-        arc.flag = new DataView(this.data.buffer).getInt8(pos);
-        pos += 1;
-        if (arc.flag & $4ead6c675ec7949c$export$281fd4b195eed79) {
-            if (arc.flag & $4ead6c675ec7949c$export$7efbea5e16f33691) {
-                const finalOutputSize = new DataView(this.data.buffer).getInt32(pos);
-                pos += 4;
+        if (this.alignmentSize === (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE) {
+            arc.flag = this.data[pos++];
+            if (!(arc.flag & (0, $4ead6c675ec7949c$export$281fd4b195eed79))) arc.label = this.data[pos++];
+        } else {
+            // 複数バイトの場合は32ビット値として読み込む
+            const flagAndLabel = new DataView(this.data.buffer).getInt32(pos);
+            arc.flag = flagAndLabel >>> 24;
+            if (!(arc.flag & (0, $4ead6c675ec7949c$export$281fd4b195eed79))) arc.label = flagAndLabel >>> 16 & 0xFF;
+            pos += this.alignmentSize;
+        }
+        if (arc.flag & (0, $4ead6c675ec7949c$export$281fd4b195eed79)) {
+            if (arc.flag & (0, $4ead6c675ec7949c$export$7efbea5e16f33691)) {
+                const finalOutputSize = this.alignmentSize === (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE ? this.data[pos++] : new DataView(this.data.buffer).getInt32(pos);
+                pos += this.alignmentSize > 1 ? this.alignmentSize : 0;
                 const finalOutput = this.data.slice(pos, pos + finalOutputSize);
                 arc.finalOutput = this.splitOutput(finalOutput);
-                pos += finalOutputSize;
+                pos += (0, $4ead6c675ec7949c$export$29db80b516530aad)(finalOutputSize, this.alignmentSize);
             }
         } else {
-            arc.label = this.data[pos];
-            pos += 1;
-            if (arc.flag & $4ead6c675ec7949c$export$cf6a49cbc8bcfc48) {
-                const outputSize = new DataView(this.data.buffer).getInt32(pos);
-                pos += 4;
+            if (arc.flag & (0, $4ead6c675ec7949c$export$cf6a49cbc8bcfc48)) {
+                const outputSize = this.alignmentSize === (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE ? this.data[pos++] : new DataView(this.data.buffer).getInt32(pos);
+                pos += this.alignmentSize > 1 ? this.alignmentSize : 0;
                 arc.output = this.data.slice(pos, pos + outputSize);
-                pos += outputSize;
+                pos += (0, $4ead6c675ec7949c$export$29db80b516530aad)(outputSize, this.alignmentSize);
             }
-            arc.target = new DataView(this.data.buffer).getInt32(pos);
-            pos += 4;
+            if (this.alignmentSize === (0, $4ead6c675ec7949c$export$894ddd3ca336a680).ONE_BYTE) arc.target = this.data[pos++];
+            else {
+                arc.target = new DataView(this.data.buffer).getInt32(pos);
+                pos += this.alignmentSize;
+            }
         }
         return [
             arc,
@@ -633,114 +891,37 @@ class $4ead6c675ec7949c$export$20214574ec94167d {
         return this.data;
     }
 }
-function $4ead6c675ec7949c$export$fcbc0da9b398f525(fst) {
-    const arcs = [];
-    const address = {};
-    let pos = 0;
-    for (const s of Array.from(fst.dictionary.values())){
-        const sortedTrans = Object.entries(s.transMap).sort((a, b)=>Number(b[0]) - Number(a[0]));
-        for(let i = 0; i < sortedTrans.length; i++){
-            const [c, v] = sortedTrans[i];
-            const buffer = new ArrayBuffer(1024);
-            const view = new DataView(buffer);
-            let offset = 0;
-            let flag = 0;
-            if (i === 0) flag |= $4ead6c675ec7949c$export$95b87cd1974c309d;
-            if (v.output.length > 0) flag |= $4ead6c675ec7949c$export$cf6a49cbc8bcfc48;
-            view.setInt8(offset++, flag);
-            view.setUint8(offset++, Number(c));
-            if (v.output.length > 0) {
-                view.setInt32(offset, v.output.length);
-                offset += 4;
-                new Uint8Array(buffer, offset).set(v.output);
-                offset += v.output.length;
-            }
-            const nextAddr = address[v.state.id];
-            const target = pos + offset + 4 - nextAddr;
-            view.setInt32(offset, target);
-            offset += 4;
-            arcs.push(new Uint8Array(buffer.slice(0, offset)));
-            pos += offset;
-        }
-        if (s.isFinal()) {
-            const buffer = new ArrayBuffer(1024);
-            const view = new DataView(buffer);
-            let offset = 0;
-            let flag = $4ead6c675ec7949c$export$281fd4b195eed79;
-            const finalOutputs = Array.from(s.finalOutput);
-            const hasOutput = finalOutputs.some((out)=>out.length > 0);
-            if (hasOutput) flag |= $4ead6c675ec7949c$export$7efbea5e16f33691;
-            if (!Object.keys(s.transMap).length) flag |= $4ead6c675ec7949c$export$95b87cd1974c309d;
-            view.setInt8(offset++, flag);
-            if (hasOutput) {
-                const separator = new Uint8Array([
-                    0x1a
-                ]);
-                const totalLength = finalOutputs.reduce((sum, curr)=>sum + curr.length, 0) + (finalOutputs.length - 1);
-                view.setInt32(offset, totalLength);
-                offset += 4;
-                for(let i = 0; i < finalOutputs.length; i++){
-                    new Uint8Array(buffer, offset).set(finalOutputs[i]);
-                    offset += finalOutputs[i].length;
-                    if (i < finalOutputs.length - 1) {
-                        new Uint8Array(buffer, offset).set(separator);
-                        offset += 1;
-                    }
-                }
-            }
-            arcs.push(new Uint8Array(buffer.slice(0, offset)));
-            pos += offset;
-        }
-        address[s.id] = pos;
-    }
-    arcs.reverse();
-    const totalLength = arcs.reduce((sum, arr)=>sum + arr.length, 0);
-    const result = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const arc of arcs){
-        result.set(arc, offset);
-        offset += arc.length;
-    }
-    return result;
-}
-function $4ead6c675ec7949c$var$prefixLen(s1, s2) {
-    let i = 0;
-    while(i < s1.length && i < s2.length && s1[i] === s2[i])i++;
-    return i;
-}
-function $4ead6c675ec7949c$var$copyState(state, id) {
-    const newState = new $4ead6c675ec7949c$export$7254cc27399e90bd(id);
-    newState.setFinal(state.isFinal());
-    newState.setStateOutput(new Set(state.stateOutput())); // Shallow copy of Set, but Uint8Arrays are immutable
-    for(const charCode in state.transMap)if (state.transMap.hasOwnProperty(charCode)) {
-        const transition = state.transMap[charCode];
-        newState.setTransition(Number(charCode), transition.state); // Assuming state IDs are handled correctly later during minimization
-        newState.setOutput(Number(charCode), transition.output); // Shallow copy of Uint8Array, but they are immutable
-    }
-    return newState;
-}
-function $4ead6c675ec7949c$export$b27a4b6e7d56c64c(inputs) {
-    inputs.sort((a, b)=>$4ead6c675ec7949c$var$compareUint8Arrays(a.k, b.k));
+var $cd8ea557b7be61b3$export$2e2bcd8739ae039 = $cd8ea557b7be61b3$var$Matcher;
+
+
+
+
+function $75a1596d3b3c354e$export$b27a4b6e7d56c64c(inputs) {
+    inputs.sort((a, b)=>(0, $4ead6c675ec7949c$export$95112ecaf0c008c1)(a.k, b.k));
     const start_time = Date.now();
     let last_printed = 0;
     const inputs_size = inputs.length;
     console.log(`input size: ${inputs_size}`);
-    const fstDict = new $4ead6c675ec7949c$export$6f2cf46b44d412d7();
-    const buffer = [];
-    buffer.push(new $4ead6c675ec7949c$export$7254cc27399e90bd()); // insert 'initial' state
-    // previous word
-    let prev_word = new Uint8Array();
+    const fstDict = new (0, $4ead6c675ec7949c$export$6f2cf46b44d412d7)();
+    const stateCache = new Map();
+    const buffer = new Array(1024).fill(null).map(()=>new (0, $4ead6c675ec7949c$export$7254cc27399e90bd)());
+    buffer[0] = new (0, $4ead6c675ec7949c$export$7254cc27399e90bd)(); // initial state
     const findMinimized = (state)=>{
-        // if an equivalent state exists in the dictionary, use that
+        const hash = fstDict.hashState(state);
+        const cached = stateCache.get(hash);
+        if (cached) return cached;
         const s = fstDict.member(state);
-        if (s === undefined) {
-            // if no equivalent state exists, insert new one and return it
-            const newState = $4ead6c675ec7949c$var$copyState(state, fstDict.size());
+        if (!s) {
+            const newState = (0, $4ead6c675ec7949c$export$66246faf9d35a11a)(state, fstDict.size());
             fstDict.insert(newState);
+            stateCache.set(hash, newState);
             return newState;
         }
+        stateCache.set(hash, s);
         return s;
     };
+    const outputBuffer = new Uint8Array(1024);
+    let prev_word = new Uint8Array();
     let processed = 0;
     let current_word;
     let current_output;
@@ -750,17 +931,17 @@ function $4ead6c675ec7949c$export$b27a4b6e7d56c64c(inputs) {
         current_output = input.v;
         // console.debug('current word: ' + String.fromCharCode(...current_word));
         // console.debug('current_output: ' + String.fromCharCode(...current_output));
-        if ($4ead6c675ec7949c$var$compareUint8Arrays(current_word, prev_word) < 0) throw new Error("Input words must be sorted lexicographically.");
-        const pref_len = $4ead6c675ec7949c$var$prefixLen(prev_word, current_word);
+        if ((0, $4ead6c675ec7949c$export$95112ecaf0c008c1)(current_word, prev_word) < 0) throw new Error("Input words must be sorted lexicographically.");
+        const pref_len = (0, $4ead6c675ec7949c$export$c3586a02be60dce4)(prev_word, current_word);
         // expand buffer to current word length
-        while(buffer.length <= current_word.length)buffer.push(new $4ead6c675ec7949c$export$7254cc27399e90bd());
+        while(buffer.length <= current_word.length)buffer.push(new (0, $4ead6c675ec7949c$export$7254cc27399e90bd)());
         // set state transitions
         for(let i = prev_word.length; i > pref_len; i--)buffer[i - 1].setTransition(prev_word[i - 1], findMinimized(buffer[i]));
         for(let i = pref_len + 1; i <= current_word.length; i++){
             buffer[i].clear();
             buffer[i - 1].setTransition(current_word[i - 1], buffer[i]);
         }
-        if ($4ead6c675ec7949c$var$compareUint8Arrays(current_word, prev_word) !== 0) {
+        if ((0, $4ead6c675ec7949c$export$95112ecaf0c008c1)(current_word, prev_word) !== 0) {
             buffer[current_word.length].setFinal(true);
             buffer[current_word.length].setStateOutput(new Set([
                 new Uint8Array()
@@ -805,7 +986,7 @@ function $4ead6c675ec7949c$export$b27a4b6e7d56c64c(inputs) {
             // update current output (subtract prefix)
             current_output = current_output.slice(common_prefix.length);
         }
-        if ($4ead6c675ec7949c$var$compareUint8Arrays(current_word, prev_word) === 0) buffer[current_word.length].stateOutput().add(current_output);
+        if ((0, $4ead6c675ec7949c$export$95112ecaf0c008c1)(current_word, prev_word) === 0) buffer[current_word.length].stateOutput().add(current_output);
         else buffer[pref_len].setOutput(current_word[pref_len], current_output);
         // preserve current word for next loop
         prev_word = current_word;
@@ -824,19 +1005,6 @@ function $4ead6c675ec7949c$export$b27a4b6e7d56c64c(inputs) {
     console.log(`num of state: ${fstDict.size()}`);
     return fstDict;
 }
-function $4ead6c675ec7949c$var$compareUint8Arrays(arr1, arr2) {
-    const len1 = arr1.length;
-    const len2 = arr2.length;
-    const len = Math.min(len1, len2);
-    for(let i = 0; i < len; i++){
-        if (arr1[i] < arr2[i]) return -1;
-        else if (arr1[i] > arr2[i]) return 1;
-    }
-    if (len1 < len2) return -1;
-    else if (len1 > len2) return 1;
-    else return 0;
-}
-
 
 
 class $b15954558ed9603e$export$8764c37c2a3aea76 {
@@ -862,7 +1030,7 @@ class $b15954558ed9603e$export$8764c37c2a3aea76 {
                 v: textEncoder.encode(k.v.toString())
             };
         });
-        return (0, $4ead6c675ec7949c$export$b27a4b6e7d56c64c)(buff_keys);
+        return (0, $75a1596d3b3c354e$export$b27a4b6e7d56c64c)(buff_keys);
     }
 }
 
@@ -2087,7 +2255,7 @@ var $01d4a28b5b1ce081$export$2e2bcd8739ae039 = $01d4a28b5b1ce081$var$UnknownDict
     }
     // from base.dat
     loadFST(base_buffer) {
-        this.word = new (0, $4ead6c675ec7949c$export$20214574ec94167d)(base_buffer);
+        this.word = new (0, $cd8ea557b7be61b3$export$2e2bcd8739ae039)(base_buffer);
         return this;
     }
     loadTokenInfoDictionaries(token_info_buffer, pos_buffer, target_map_buffer) {
@@ -2317,8 +2485,8 @@ var $3089003cac8608b4$export$2e2bcd8739ae039 = $3089003cac8608b4$var$ConnectionC
         });
         const builder = new (0, $b15954558ed9603e$export$8764c37c2a3aea76)();
         const fst = builder.build(words);
-        const bin = (0, $4ead6c675ec7949c$export$fcbc0da9b398f525)(fst);
-        return new (0, $4ead6c675ec7949c$export$20214574ec94167d)(bin);
+        const bin = (0, $412777b7fa41cd98$export$fcbc0da9b398f525)(fst);
+        return new (0, $cd8ea557b7be61b3$export$2e2bcd8739ae039)(bin);
     }
     /**
 	 * Build double array trie
