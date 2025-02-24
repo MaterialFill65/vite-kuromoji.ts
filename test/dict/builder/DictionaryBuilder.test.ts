@@ -85,7 +85,7 @@ describe("DictionaryBuilder", () => {
         });
         it("Tokenize simple test", () => {
             const tokenizer = new Tokenizer(kuromoji_dic!, new IpadicFormatter());
-            const path = tokenizer.tokenize("すもももももももものうち");
+            const path = tokenizer.tokenizeSync("すもももももももものうち");
 
             const expected_tokens: Token[] = [
                 {
@@ -251,7 +251,7 @@ describe("DictionaryBuilder", () => {
         });
         it("Tokenize simple test", () => {
             const tokenizer = new Tokenizer(kuromoji_dic!, new UnidicFormatter());
-            const path = tokenizer.tokenize("すもももももももものうち");
+            const path = tokenizer.tokenizeSync("すもももももももものうち");
 
             const expected_tokens = [
                 {

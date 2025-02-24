@@ -22,7 +22,13 @@ Key Feature
 - Blazing fast dictionary building (only Deno avaliable)
 - Cross platform compatibility (Node.js, Deno, Bun, Browser)
 - Prefix Search with Finite State Transducer(Minimal Acyclic Subsequential Transducer)<br>
-  base.dat.gz (4.89MB) & check.dat.gz (4.08MB) -> fst.dat.gz (2.66MB)
+  base.dat.gz (4.89MB) & check.dat.gz (4.08MB) -> fst.dat.gz (2.66MB) (Idk where the trash code is, but ridiculously slow.)
+- Stream Support
+
+Bench
+-----
+Trie: 66529.34 tokens/second with Stream
+FST: 511 tokens/second with tream
 
 Directory
 ---------

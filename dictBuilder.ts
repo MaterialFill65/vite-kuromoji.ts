@@ -1,4 +1,4 @@
-import { Matcher } from "./src/fst/FST";
+import FSTMatcher from "./src/fst/Matcher";
 import kuromoji from "./src/kuromoji";
 import { DoubleArray } from "./src/util/DoubleArray";
 
@@ -150,7 +150,7 @@ async function writeCompressedFile(path: string, data: Arrays) {
 }
 
 
-writeCompressedFile(`dict/${type}/fst.dat`, (dic.word.fst as Matcher).getBuffer());
+writeCompressedFile(`dict/${type}/fst.dat`, (dic.word.fst as FSTMatcher).getBuffer());
 writeCompressedFile(`dict/${type}/base.dat`, (dic.word.trie as DoubleArray).bc.getBaseBuffer());
 writeCompressedFile(`dict/${type}/check.dat`, (dic.word.trie as DoubleArray).bc.getCheckBuffer());
 writeCompressedFile(`dict/${type}/tid.dat`, dic.dic.token_info_dictionary.dictionary.buffer);

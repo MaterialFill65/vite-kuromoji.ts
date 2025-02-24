@@ -1,4 +1,5 @@
-import { FST, State, createMinimumTransducer } from "./FST";
+import { FST, State } from "./FST";
+import { createMinimumTransducer } from "./createMinimumTransducer";
 
 interface KeyValue {
 	k: string;

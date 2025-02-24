@@ -1,4 +1,6 @@
-import { compileFST, FST, Matcher } from "../../fst/FST";
+import { AlignmentSize, FST } from "../../fst/FST";
+import { compileFST } from "../../fst/compileFST";
+import Matcher from "../../fst/Matcher";
 import { FSTBuilder } from "../../fst/FSTBuilder";
 import { type DoubleArray, builder as _builder } from "../../util/DoubleArray";
 import DynamicDictionaries, { type WordSearch } from "../DynamicDictionaries";

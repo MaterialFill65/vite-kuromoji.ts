@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FSTBuilder } from '../../src/fst/FSTBuilder';
-import { compileFST, Matcher } from '../../src/fst/FST';
+import { compileFST } from "../../src/fst/compileFST";
+import Matcher from "../../src/fst/Matcher";
 import DoubleArrayBuilder from '../../src/util/DoubleArray';
 
 describe('FST tests', () => {

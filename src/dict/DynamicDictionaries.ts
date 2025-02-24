@@ -1,4 +1,4 @@
-import { Matcher } from "../fst/FST";
+import Matcher from "../fst/Matcher";
 import { builder, load } from "../util/DoubleArray";
 import ConnectionCosts from "./ConnectionCosts";
 import TokenInfoDictionary from "./TokenInfoDictionary";
