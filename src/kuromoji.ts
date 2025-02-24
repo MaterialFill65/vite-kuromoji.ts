@@ -5,7 +5,8 @@ import type { Formatter } from "./util/Formatter";
 import IpadicFormatter from "./util/IpadicFormatter";
 import UnidicFormatter from "./util/UnidicFormater";
 import type manifest from "./util/manifest";
-import { DetailedDicPath, type dicType } from "./util/manifest";
+import { type dicType } from "./util/manifest";
+import { type Token } from "./util/Formatter";
 
 const dic_formatter: Record<dicType, Formatter> = {
 	IPAdic: new IpadicFormatter(),

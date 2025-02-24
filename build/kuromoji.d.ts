@@ -1,43 +1,12 @@
-interface KeyValue {
-    k: string | Uint8Array;
+interface externalKeyValue {
+    k: string;
     v: number;
-}
-interface Transition {
-    state: State;
-    output: Uint8Array;
-}
-interface TransitionMap {
-    [key: number]: Transition;
-}
-declare class State {
-    id: number | null;
-    final: boolean;
-    transMap: TransitionMap;
-    finalOutput: Set<Uint8Array>;
-    constructor(id?: number | null);
-    isFinal(): boolean;
-    setFinal(final: boolean): void;
-    transition(char: number): State | null;
-    setTransition(char: number, state: State): void;
-    stateOutput(): Set<Uint8Array>;
-    setStateOutput(output: Set<Uint8Array>): void;
-    clearStateOutput(): void;
-    output(char: number): Uint8Array;
-    setOutput(char: number, out: Uint8Array): void;
-    clear(): void;
-}
-declare class FST {
-    dictionary: Map<string, State>;
-    constructor();
-    size(): number;
-    member(state: State): State | undefined;
-    insert(state: State): void;
 }
 declare class Matcher implements WordSearch {
     constructor(dictData?: Uint8Array);
     run(word: Uint8Array): [boolean, Set<Uint8Array>];
     lookup(key: string): number;
-    commonPrefixSearch(word: string): KeyValue[];
+    commonPrefixSearch(word: string): externalKeyValue[];
     getBuffer(): Uint8Array<ArrayBufferLike>;
 }
 type Arrays = Int8Array | Int16Array | Int32Array | Uint8Array | Uint16Array | Uint32Array;
@@ -61,47 +30,9 @@ interface BaseAndCheck {
     };
     dump(): string;
 }
-interface _KeyValue1 {
-    k: string | Uint8Array;
+interface external_KeyValue {
+    k: string;
     v: number;
-}
-/**
- * Factory method of double array
- */
-declare class DoubleArrayBuilder {
-    bc: BaseAndCheck;
-    keys: _KeyValue1[];
-    constructor(initial_size: number | undefined);
-    /**
-     * Append a key to initialize set
-     * (This method should be called by dictionary ordered key)
-     *
-     * @param {String} key
-     * @param {Number} record Integer value from 0 to max signed integer number - 1
-     */
-    append(key: string, record: number): this;
-    /**
-     * Build double array for given keys
-     *
-     * @param {Array} keys Array of keys. A key is a Object which has properties 'k', 'v'.
-     * 'k' is a key string, 'v' is a record assigned to that key.
-     * @return {DoubleArray} Compiled double array
-     */
-    build(keys?: _KeyValue1[], sorted?: boolean): DoubleArray;
-    /**
-     * Append nodes to BASE and CHECK array recursively
-     */
-    _build(parent_index: number, position: number, start: number, length: number): void;
-    getChildrenInfo(position: number, start: number, length: number): Int32Array<ArrayBuffer>;
-    setBC(parent_id: number, children_info: Int32Array, _base: number): void;
-    /**
-     * Find BASE value that all children are allocatable in double array's region
-     */
-    findAllocatableBase(children_info: Int32Array): number;
-    /**
-     * Check this double array index is unused or not
-     */
-    isUnusedNode(index: number): boolean;
 }
 /**
  * Factory method of double array
@@ -130,7 +61,7 @@ declare class DoubleArray implements WordSearch {
      * @return {Array} Each result object has 'k' and 'v' (key and record,
      * respectively) properties assigned to matched string
      */
-    commonPrefixSearch(key: string): _KeyValue1[];
+    commonPrefixSearch(key: string): external_KeyValue[];
     traverse(parent: number, code: number): number;
     size(): number;
     calc(): {
@@ -326,12 +257,12 @@ declare class UnknownDictionary extends TokenInfoDictionary {
     lookupCompatibleCategory(ch: string): $$parcel$import$1[];
     loadUnknownDictionaries(unk_buffer: Uint8Array<ArrayBufferLike>, unk_pos_buffer: Uint8Array<ArrayBufferLike>, unk_map_buffer: Uint8Array<ArrayBufferLike>, cat_map_buffer: Uint8Array, compat_cat_map_buffer: Uint32Array, invoke_def_buffer: Uint8Array): void;
 }
-interface _KeyValue2 {
-    k: string | Uint8Array;
+interface KeyValue {
+    k: string;
     v: number;
 }
 interface WordSearch {
-    commonPrefixSearch(word: string): _KeyValue2[];
+    commonPrefixSearch(word: string): KeyValue[];
     lookup(key: string): number;
 }
 /**
@@ -358,7 +289,7 @@ interface Formatter {
     formatEntry(word_id: number, position: number, type: string, features: string[]): Token;
     formatUnknownEntry(word_id: number, position: number, type: string, features: string[], surface_form: string): Token;
 }
-type Token = {
+interface Token {
     word_id?: number;
     word_type: string;
     word_position: number;
@@ -372,7 +303,7 @@ type Token = {
     basic_form: string;
     reading?: string;
     pronunciation?: string;
-};
+}
 /**
  * ViterbiNode is a node of ViterbiLattice
  * @param {number} node_name Word ID
@@ -482,30 +413,6 @@ declare class Tokenizer {
      */
     getLattice(text: string): ViterbiLattice;
 }
-interface _KeyValue3 {
-    k: string;
-    v: number;
-}
-declare class FSTBuilder {
-    constructor();
-    /**
-     * 新しい状態を作成します
-     */
-    newState(): State;
-    /**
-     * 単語と出力をFSTに追加します
-     */
-    add(word: Uint8Array, output: Uint8Array): void;
-    append(key: string, record: number): this;
-    /**
-     * 文字列と出力のペアを一括で追加します
-     */
-    addAll(entries: Array<[Uint8Array, Uint8Array]>): void;
-    /**
-     * FSTを最適化して構築します
-     */
-    build(keys: _KeyValue3[]): FST;
-}
 /**
  * CharacterDefinitionBuilder
  * @constructor
@@ -547,21 +454,12 @@ declare class ConnectionCostsBuilder {
  * tid_pos.dat: posList (part of speech)
  */
 declare class DictionaryBuilder {
-    tid: TokenInfoDictionary;
-    unk: UnknownDictionary;
+    tid_entries: string[][];
+    unk_entries: string[][];
     cc_builder: ConnectionCostsBuilder;
     cd_builder: CharacterDefinitionBuilder;
-    unk_dictionary_entries: {
-        [x: number]: string;
-    };
-    tid_dictionary_entries: {
-        [x: number]: string;
-    };
-    fst_builder: FSTBuilder;
-    trie_builder: DoubleArrayBuilder;
-    trie_id: number;
     constructor();
-    addTokenInfoDictionary(new_entry: string): void;
+    addTokenInfoDictionary(new_entry: string): this;
     /**
      * Put one line of "matrix.def" file for building ConnectionCosts object
      * @param {string} line is a line of "matrix.def"
@@ -572,15 +470,25 @@ declare class DictionaryBuilder {
      * Put one line of "unk.def" file for building UnknownDictionary object
      * @param {string[]} new_entry is a line of "unk.def"
      */
-    putUnkDefLine(new_entry: string): void;
+    putUnkDefLine(new_entry: string): this;
     build(isTrie?: boolean): DynamicDictionaries;
+    buildAll(): {
+        dic: DynamicDictionaries;
+        word: {
+            fst?: WordSearch;
+            trie?: WordSearch;
+        };
+    };
     /**
      * Build TokenInfoDictionary
      *
      * @returns {{trie: WordSearch, token_info_dictionary: TokenInfoDictionary}}
      */
-    buildTokenInfoDictionary(isTrie: boolean): {
-        word: WordSearch;
+    buildTokenInfoDictionary(isTrie?: boolean, all?: boolean): {
+        word: {
+            fst?: WordSearch;
+            trie?: WordSearch;
+        };
         token_info_dictionary: TokenInfoDictionary;
     };
     buildUnknownDictionary(): UnknownDictionary;
@@ -617,17 +525,22 @@ interface fst {
     readonly type: "FST";
     readonly base: file;
 }
-interface DetailedDicPath {
-    readonly tid: dict;
-    readonly unk: dict;
-    readonly cc: file;
-    readonly chr: chr;
-    readonly word: trie | fst;
+interface SoftDicPath {
+    tid?: dict;
+    unk?: dict;
+    cc?: file;
+    chr?: chr;
+    word?: trie | fst;
     readonly base: string;
 }
 interface manifest {
     readonly dicType?: dicType;
-    dicPath?: DetailedDicPath | string;
+    dicPath?: SoftDicPath | string;
+}
+declare global {
+    var Deno: any;
+    var Bun: any;
+    var process: any;
 }
 declare const kuromoji: {
     build: (option: manifest) => Promise<Tokenizer>;

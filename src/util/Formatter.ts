@@ -14,7 +14,7 @@ export interface Formatter {
 	): Token;
 }
 
-export type Token = {
+export interface Token {
 	word_id?: number;
 	word_type: string;
 	word_position: number;

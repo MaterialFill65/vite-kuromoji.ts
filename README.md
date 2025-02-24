@@ -23,6 +23,7 @@ Key Feature
 - Cross platform compatibility (Node.js, Deno, Bun, Browser)
 - Prefix Search with Finite State Transducer(Minimal Acyclic Subsequential Transducer)<br>
   base.dat.gz (4.89MB) & check.dat.gz (4.08MB) -> fst.dat.gz (2.66MB)
+
 Directory
 ---------
 
@@ -32,7 +33,7 @@ Directory tree is as follows:
       kuromoji.js -- JavaScript file for browser (vited)
     demo/         -- Demo
     dict/         -- Dictionaries for tokenizer (gzipped)
-    example/      -- Examples to use in Node.js
+    example/      -- Examples to use in Node.js, Deno, Bun.
     src/          -- JavaScript source
     test/         -- Unit test
 

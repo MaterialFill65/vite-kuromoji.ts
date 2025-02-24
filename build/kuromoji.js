@@ -205,11 +205,15 @@ var $6f4076c3f0249525$export$2e2bcd8739ae039 = $6f4076c3f0249525$var$ViterbiLatt
         for(let pos = 0; pos < sentence.length; pos++){
             const tail = sentence.slice(pos);
             const vocabulary = this.word.commonPrefixSearch(tail);
+            // console.log(vocabulary)
+            // console.log(vocabulary.length)
             for(let n = 0; n < vocabulary.length; n++){
                 // Words in dictionary do not have surrogate pair (only UCS2 set)
                 trie_id = vocabulary[n].v;
                 key = vocabulary[n].k;
                 const token_info_ids = this.token_info_dictionary.target_map[trie_id];
+                // console.log(key)
+                // console.log(token_info_ids)
                 for(let i = 0; i < token_info_ids.length; i++){
                     const token_info_id = Number.parseInt(token_info_ids[i].toString());
                     left_id = this.token_info_dictionary.dictionary.getShort(token_info_id);
@@ -515,8 +519,8 @@ class $4ead6c675ec7949c$export$20214574ec94167d {
         while(pos < this.data.length){
             const [arc, incr] = this.nextArc(pos);
             if (arc.flag & $4ead6c675ec7949c$export$281fd4b195eed79) {
-                accept = i >= word.length;
-                arc.finalOutput.forEach((out)=>{
+                accept = i === word.length;
+                if (accept) arc.finalOutput.forEach((out)=>{
                     const newOutput = new Uint8Array(buf.length + out.length);
                     newOutput.set(buf);
                     newOutput.set(out, buf.length);
@@ -556,25 +560,25 @@ class $4ead6c675ec7949c$export$20214574ec94167d {
         const textDecoder = new TextDecoder();
         const [accept, encoded_word] = this.run(textEncoder.encode(key));
         if (!accept) return $4ead6c675ec7949c$var$NOT_FOUND;
-        let result;
-        encoded_word.forEach((e)=>{
-            result = e;
-        });
-        if (!result) return $4ead6c675ec7949c$var$NOT_FOUND;
+        let result = Array.from(encoded_word)[0];
         return parseInt(textDecoder.decode(result));
     }
     commonPrefixSearch(word) {
         const textEncoder = new TextEncoder();
         const textDecoder = new TextDecoder();
-        const encoded_word = textEncoder.encode(word);
-        const [accepted, result] = this.run(encoded_word);
-        if (!accepted) return [];
-        return Array.from(result).map((enc_output)=>{
-            return {
-                k: word,
-                v: Number.parseInt(textDecoder.decode(enc_output))
-            };
-        });
+        const buffer = textEncoder.encode(word);
+        const searchResult = [];
+        for(let i = 1; i <= buffer.length; i++){
+            const [accepted, result] = this.run(buffer.slice(0, i));
+            if (!accepted) continue;
+            const arrayed = Array.from(result);
+            const tmp_searchResult = arrayed.map((enc_output)=>({
+                    k: textDecoder.decode(buffer.slice(0, i)),
+                    v: Number.parseInt(textDecoder.decode(enc_output))
+                }));
+            searchResult.push(tmp_searchResult[0]);
+        }
+        return searchResult;
     }
     nextArc(addr) {
         const arc = {
@@ -699,15 +703,146 @@ function $4ead6c675ec7949c$export$fcbc0da9b398f525(fst) {
     }
     return result;
 }
+function $4ead6c675ec7949c$var$prefixLen(s1, s2) {
+    let i = 0;
+    while(i < s1.length && i < s2.length && s1[i] === s2[i])i++;
+    return i;
+}
+function $4ead6c675ec7949c$var$copyState(state, id) {
+    const newState = new $4ead6c675ec7949c$export$7254cc27399e90bd(id);
+    newState.setFinal(state.isFinal());
+    newState.setStateOutput(new Set(state.stateOutput())); // Shallow copy of Set, but Uint8Arrays are immutable
+    for(const charCode in state.transMap)if (state.transMap.hasOwnProperty(charCode)) {
+        const transition = state.transMap[charCode];
+        newState.setTransition(Number(charCode), transition.state); // Assuming state IDs are handled correctly later during minimization
+        newState.setOutput(Number(charCode), transition.output); // Shallow copy of Uint8Array, but they are immutable
+    }
+    return newState;
+}
+function $4ead6c675ec7949c$export$b27a4b6e7d56c64c(inputs) {
+    inputs.sort((a, b)=>$4ead6c675ec7949c$var$compareUint8Arrays(a.k, b.k));
+    const start_time = Date.now();
+    let last_printed = 0;
+    const inputs_size = inputs.length;
+    console.log(`input size: ${inputs_size}`);
+    const fstDict = new $4ead6c675ec7949c$export$6f2cf46b44d412d7();
+    const buffer = [];
+    buffer.push(new $4ead6c675ec7949c$export$7254cc27399e90bd()); // insert 'initial' state
+    // previous word
+    let prev_word = new Uint8Array();
+    const findMinimized = (state)=>{
+        // if an equivalent state exists in the dictionary, use that
+        const s = fstDict.member(state);
+        if (s === undefined) {
+            // if no equivalent state exists, insert new one and return it
+            const newState = $4ead6c675ec7949c$var$copyState(state, fstDict.size());
+            fstDict.insert(newState);
+            return newState;
+        }
+        return s;
+    };
+    let processed = 0;
+    let current_word;
+    let current_output;
+    // main loop
+    for (const input of inputs){
+        current_word = input.k;
+        current_output = input.v;
+        // console.debug('current word: ' + String.fromCharCode(...current_word));
+        // console.debug('current_output: ' + String.fromCharCode(...current_output));
+        if ($4ead6c675ec7949c$var$compareUint8Arrays(current_word, prev_word) < 0) throw new Error("Input words must be sorted lexicographically.");
+        const pref_len = $4ead6c675ec7949c$var$prefixLen(prev_word, current_word);
+        // expand buffer to current word length
+        while(buffer.length <= current_word.length)buffer.push(new $4ead6c675ec7949c$export$7254cc27399e90bd());
+        // set state transitions
+        for(let i = prev_word.length; i > pref_len; i--)buffer[i - 1].setTransition(prev_word[i - 1], findMinimized(buffer[i]));
+        for(let i = pref_len + 1; i <= current_word.length; i++){
+            buffer[i].clear();
+            buffer[i - 1].setTransition(current_word[i - 1], buffer[i]);
+        }
+        if ($4ead6c675ec7949c$var$compareUint8Arrays(current_word, prev_word) !== 0) {
+            buffer[current_word.length].setFinal(true);
+            buffer[current_word.length].setStateOutput(new Set([
+                new Uint8Array()
+            ]));
+        }
+        // set state outputs
+        for(let j = 1; j <= pref_len; j++){
+            // divide (j-1)th state's output to (common) prefix and suffix
+            const common_prefix_arr = [];
+            const output = buffer[j - 1].output(current_word[j - 1]);
+            let k = 0;
+            while(k < output.length && k < current_output.length && output[k] === current_output[k]){
+                common_prefix_arr.push(output[k]);
+                k++;
+            }
+            const common_prefix = new Uint8Array(common_prefix_arr);
+            const word_suffix = output.slice(common_prefix.length);
+            // re-set (j-1)'th state's output to prefix
+            buffer[j - 1].setOutput(current_word[j - 1], common_prefix);
+            // re-set jth state's output to suffix or set final state output
+            for(const charCodeStr in buffer[j].transMap)if (buffer[j].transMap.hasOwnProperty(charCodeStr)) {
+                const charCode = Number(charCodeStr);
+                const new_output_arr = [
+                    ...word_suffix,
+                    ...buffer[j].output(charCode)
+                ];
+                const new_output = new Uint8Array(new_output_arr);
+                buffer[j].setOutput(charCode, new_output);
+            }
+            // or, set final state output if it's a final state
+            if (buffer[j].isFinal()) {
+                const tmp_set = new Set();
+                for (const tmp_str of buffer[j].stateOutput()){
+                    const newOutputArr = [
+                        ...word_suffix,
+                        ...tmp_str
+                    ];
+                    tmp_set.add(new Uint8Array(newOutputArr));
+                }
+                buffer[j].setStateOutput(tmp_set);
+            }
+            // update current output (subtract prefix)
+            current_output = current_output.slice(common_prefix.length);
+        }
+        if ($4ead6c675ec7949c$var$compareUint8Arrays(current_word, prev_word) === 0) buffer[current_word.length].stateOutput().add(current_output);
+        else buffer[pref_len].setOutput(current_word[pref_len], current_output);
+        // preserve current word for next loop
+        prev_word = current_word;
+        // progress
+        processed++;
+        const elapsed = Math.round((Date.now() - start_time) / 1000);
+        if (elapsed % 30 === 0 && elapsed > last_printed) {
+            const progress = processed / inputs_size * 100;
+            console.log(`elapsed=${elapsed}sec, progress: ${progress} %`);
+            last_printed = elapsed;
+        }
+    }
+    if (current_word) // minimize the last word
+    for(let i = current_word.length; i > 0; i--)buffer[i - 1].setTransition(prev_word[i - 1], findMinimized(buffer[i]));
+    findMinimized(buffer[0]);
+    console.log(`num of state: ${fstDict.size()}`);
+    return fstDict;
+}
+function $4ead6c675ec7949c$var$compareUint8Arrays(arr1, arr2) {
+    const len1 = arr1.length;
+    const len2 = arr2.length;
+    const len = Math.min(len1, len2);
+    for(let i = 0; i < len; i++){
+        if (arr1[i] < arr2[i]) return -1;
+        else if (arr1[i] > arr2[i]) return 1;
+    }
+    if (len1 < len2) return -1;
+    else if (len1 > len2) return 1;
+    else return 0;
+}
 
 
 
 class $b15954558ed9603e$export$8764c37c2a3aea76 {
     states;
-    dictionary;
     constructor(){
         this.states = [];
-        this.dictionary = new (0, $4ead6c675ec7949c$export$6f2cf46b44d412d7)();
     }
     /**
 	 * 新しい状態を作成します
@@ -717,69 +852,17 @@ class $b15954558ed9603e$export$8764c37c2a3aea76 {
         return state;
     }
     /**
-	 * 単語と出力をFSTに追加します
-	 */ add(word, output) {
-        let current = this.getRoot();
-        const wordLength = word.length;
-        let next;
-        for(let i = 0; i < wordLength; i++){
-            next = current.transition(word[i]);
-            if (!next) {
-                next = this.newState();
-                current.setTransition(word[i], next);
-            }
-            current = next;
-        }
-        current.setFinal(true);
-        current.stateOutput().add(output);
-    }
-    append(key, record) {
-        const textEncoder = new TextEncoder();
-        this.add(textEncoder.encode(key), textEncoder.encode(record.toString()));
-        return this;
-    }
-    /**
-	 * 文字列と出力のペアを一括で追加します
-	 */ addAll(entries) {
-        for (const [word, output] of entries)this.add(word, output);
-    }
-    /**
-	 * ルート状態を取得します
-	 */ getRoot() {
-        if (this.states.length === 0) return this.newState();
-        return this.states[0];
-    }
-    /**
 	 * FSTを最適化して構築します
 	 */ build(keys) {
         // Convert key string to ArrayBuffer
         const textEncoder = new TextEncoder();
         const buff_keys = keys.map((k)=>{
-            return [
-                textEncoder.encode(k.k),
-                textEncoder.encode(k.v.toString())
-            ];
+            return {
+                k: textEncoder.encode(k.k),
+                v: textEncoder.encode(k.v.toString())
+            };
         });
-        this.addAll(buff_keys);
-        // 末尾の状態から順番に同値な状態を統合
-        for(let i = this.states.length - 1; i >= 0; i--){
-            const state = this.states[i];
-            const equivalent = this.dictionary.member(state);
-            if (equivalent) // 同値な状態が存在する場合、それに置き換える
-            this.replaceState(i, equivalent);
-            else // 新しい状態として登録
-            this.dictionary.insert(state);
-        }
-        return this.dictionary;
-    }
-    /**
-	 * 状態を置き換えます
-	 */ replaceState(index, replacement) {
-        // index以前の状態について、遷移先を置き換える
-        for(let i = 0; i < index; i++){
-            const state = this.states[i];
-            for (const [char, trans] of Object.entries(state.transMap))if (trans.state === this.states[index]) state.setTransition(Number(char), replacement);
-        }
+        return (0, $4ead6c675ec7949c$export$b27a4b6e7d56c64c)(buff_keys);
     }
 }
 
@@ -2127,38 +2210,21 @@ var $3089003cac8608b4$export$2e2bcd8739ae039 = $3089003cac8608b4$var$ConnectionC
  * tid_map.dat: targetMap
  * tid_pos.dat: posList (part of speech)
  */ class $0763a7dff3591e94$var$DictionaryBuilder {
-    tid;
-    unk;
+    tid_entries;
+    unk_entries;
     cc_builder;
     cd_builder;
-    unk_dictionary_entries = {};
-    tid_dictionary_entries = {};
-    fst_builder = new (0, $b15954558ed9603e$export$8764c37c2a3aea76)();
-    trie_builder = new (0, $60f4f4059ac4d094$export$2e2bcd8739ae039)(1048576);
-    trie_id = 0;
     constructor(){
         // Array of entries, each entry in Mecab form
         // (0: surface form, 1: left id, 2: right id, 3: word cost, 4: part of speech id, 5-: other features)
-        this.tid = new (0, $b0b6d5d6e9241a5d$export$2e2bcd8739ae039)();
-        this.unk = new (0, $01d4a28b5b1ce081$export$2e2bcd8739ae039)();
+        this.tid_entries = [];
+        this.unk_entries = [];
         this.cc_builder = new (0, $3089003cac8608b4$export$2e2bcd8739ae039)();
         this.cd_builder = new (0, $1f68d5c6b2004367$export$2e2bcd8739ae039)();
     }
     addTokenInfoDictionary(new_entry) {
-        const entry = new_entry.split(",");
-        if (entry.length < 4) return;
-        const surface_form = entry[0];
-        const left_id = Number(entry[1]);
-        const right_id = Number(entry[2]);
-        const word_cost = Number(entry[3]);
-        const feature = entry.slice(4).join(","); // TODO Optimize
-        // Assertion
-        if (!Number.isFinite(left_id) || !Number.isFinite(right_id) || !Number.isFinite(word_cost)) console.log(entry);
-        const token_info_id = this.tid.put(left_id, right_id, word_cost, surface_form, feature);
-        this.tid_dictionary_entries[token_info_id] = surface_form;
-        const id = this.trie_id++;
-        this.fst_builder.append(surface_form, id);
-    // this.trie_builder.append(surface_form, id);
+        this.tid_entries.push(new_entry.split(","));
+        return this;
     }
     /**
 	 * Put one line of "matrix.def" file for building ConnectionCosts object
@@ -2175,60 +2241,82 @@ var $3089003cac8608b4$export$2e2bcd8739ae039 = $3089003cac8608b4$var$ConnectionC
 	 * Put one line of "unk.def" file for building UnknownDictionary object
 	 * @param {string[]} new_entry is a line of "unk.def"
 	 */ putUnkDefLine(new_entry) {
-        const entry = new_entry.split(",");
-        if (entry.length < 4) return;
-        const surface_form = entry[0];
-        const left_id = Number(entry[1]);
-        const right_id = Number(entry[2]);
-        const word_cost = Number(entry[3]);
-        const feature = entry.slice(4).join(","); // TODO Optimize
-        // Assertion
-        if (!Number.isFinite(left_id) || !Number.isFinite(right_id) || !Number.isFinite(word_cost)) console.log(entry);
-        const token_info_id = this.unk.put(left_id, right_id, word_cost, surface_form, feature);
-        this.unk_dictionary_entries[token_info_id] = surface_form;
+        this.unk_entries.push(new_entry.split(","));
+        return this;
     }
     build(isTrie = true) {
         const dictionaries = this.buildTokenInfoDictionary(isTrie);
         const unknown_dictionary = this.buildUnknownDictionary();
-        return new (0, $0848a9c02181f40d$export$2e2bcd8739ae039)(dictionaries.word, dictionaries.token_info_dictionary, this.cc_builder.build(), unknown_dictionary);
+        if (dictionaries.word.fst) return new (0, $0848a9c02181f40d$export$2e2bcd8739ae039)(dictionaries.word.fst, dictionaries.token_info_dictionary, this.cc_builder.build(), unknown_dictionary);
+        else return new (0, $0848a9c02181f40d$export$2e2bcd8739ae039)(dictionaries.word.trie, dictionaries.token_info_dictionary, this.cc_builder.build(), unknown_dictionary);
+    }
+    buildAll() {
+        const dictionaries = this.buildTokenInfoDictionary(true, true);
+        const unknown_dictionary = this.buildUnknownDictionary();
+        return {
+            dic: new (0, $0848a9c02181f40d$export$2e2bcd8739ae039)(undefined, dictionaries.token_info_dictionary, this.cc_builder.build(), unknown_dictionary),
+            word: dictionaries.word
+        };
     }
     /**
 	 * Build TokenInfoDictionary
 	 *
 	 * @returns {{trie: WordSearch, token_info_dictionary: TokenInfoDictionary}}
-	 */ buildTokenInfoDictionary(isTrie) {
-        const word = isTrie ? this.buildDoubleArray() : this.buildFST();
-        for(const token_info_id in this.tid_dictionary_entries){
-            const surface_form = this.tid_dictionary_entries[token_info_id];
-            const trie_id = word.lookup(surface_form);
+	 */ buildTokenInfoDictionary(isTrie = true, all = false) {
+        const token_info_dictionary = new (0, $b0b6d5d6e9241a5d$export$2e2bcd8739ae039)();
+        // using as hashmap, string -> string (word_id -> surface_form) to build dictionary
+        const dictionary_entries = token_info_dictionary.buildDictionary(this.tid_entries);
+        let fst;
+        let trie;
+        if (all) {
+            fst = this.buildFST();
+            trie = this.buildDoubleArray();
+        } else if (isTrie) trie = this.buildDoubleArray();
+        else fst = this.buildFST();
+        for(const token_info_id in dictionary_entries){
+            const surface_form = dictionary_entries[token_info_id];
+            const trie_id = (isTrie ? trie : fst).lookup(surface_form);
             // Assertion
-            // if (trie_id < 0) {
-            //     console.log("Not Found:" + surface_form);
-            // }
-            this.tid.addMapping(trie_id, token_info_id);
+            if (trie_id < 0) console.log("Not Found:" + surface_form);
+            token_info_dictionary.addMapping(trie_id, token_info_id);
         }
         return {
-            word: word,
-            token_info_dictionary: this.tid
+            word: {
+                trie: trie,
+                fst: fst
+            },
+            token_info_dictionary: token_info_dictionary
         };
     }
     buildUnknownDictionary() {
+        const unk_dictionary = new (0, $01d4a28b5b1ce081$export$2e2bcd8739ae039)();
+        // using as hashmap, string -> string (word_id -> surface_form) to build dictionary
+        const dictionary_entries = unk_dictionary.buildDictionary(this.unk_entries);
         const char_def = this.cd_builder.build(); // Create CharacterDefinition
         if (!char_def.invoke_definition_map) throw new Error("invoke_definition_map is not initialized");
-        this.unk.characterDefinition(char_def);
-        for(const token_info_id in this.unk_dictionary_entries){
-            const class_name = this.unk_dictionary_entries[token_info_id];
+        unk_dictionary.characterDefinition(char_def);
+        for(const token_info_id in dictionary_entries){
+            const class_name = dictionary_entries[token_info_id];
             const class_id = char_def.invoke_definition_map.lookup(class_name);
             // Assertion
             // if (trie_id < 0) {
             //     console.log("Not Found:" + surface_form);
             // }
-            this.unk.addMapping(class_id, token_info_id);
+            unk_dictionary.addMapping(class_id, token_info_id);
         }
-        return this.unk;
+        return unk_dictionary;
     }
     buildFST() {
-        const fst = this.fst_builder.build([]);
+        let trie_id = 0;
+        const words = this.tid_entries.map((entry)=>{
+            const surface_form = entry[0];
+            return {
+                k: surface_form,
+                v: trie_id++
+            };
+        });
+        const builder = new (0, $b15954558ed9603e$export$8764c37c2a3aea76)();
+        const fst = builder.build(words);
         const bin = (0, $4ead6c675ec7949c$export$fcbc0da9b398f525)(fst);
         return new (0, $4ead6c675ec7949c$export$20214574ec94167d)(bin);
     }
@@ -2237,8 +2325,16 @@ var $3089003cac8608b4$export$2e2bcd8739ae039 = $3089003cac8608b4$var$ConnectionC
 	 *
 	 * @returns {DoubleArray} Double-Array trie
 	 */ buildDoubleArray() {
-        const builder = this.trie_builder;
-        return builder.build();
+        let trie_id = 0;
+        const words = this.tid_entries.map((entry)=>{
+            const surface_form = entry[0];
+            return {
+                k: surface_form,
+                v: trie_id++
+            };
+        });
+        const builder = (0, $60f4f4059ac4d094$export$933032be53f7ca16)(1048576);
+        return builder.build(words);
     }
 }
 var $0763a7dff3591e94$export$2e2bcd8739ae039 = $0763a7dff3591e94$var$DictionaryBuilder;
@@ -2312,8 +2408,38 @@ var $ed082760b2618cdb$var$_DecompressionStream;
     constructor(dic_path){
         let dicPath;
         dic_path !== null && dic_path !== void 0 ? dic_path : dic_path = "/dict";
-        if (typeof dic_path !== "string") dicPath = dic_path;
-        else dicPath = {
+        if (typeof dic_path !== "string") {
+            dicPath = {
+                tid: {
+                    dict: "tid.dat.gz",
+                    map: "tid_map.dat.gz",
+                    pos: "tid_pos.dat.gz"
+                },
+                unk: {
+                    dict: "unk.dat.gz",
+                    map: "unk_map.dat.gz",
+                    pos: "unk_pos.dat.gz"
+                },
+                cc: "cc.dat.gz",
+                chr: {
+                    char: "unk_char.dat.gz",
+                    compat: "unk_compat.dat.gz",
+                    invoke: "unk_invoke.dat.gz"
+                },
+                word: {
+                    type: "Trie",
+                    base: "base.dat.gz",
+                    check: "check.dat.gz"
+                },
+                base: "/dict"
+            };
+            if (dic_path.word !== undefined) dicPath.word = dic_path.word;
+            if (dic_path.tid !== undefined) dicPath.tid = dic_path.tid;
+            if (dic_path.unk !== undefined) dicPath.unk = dic_path.unk;
+            if (dic_path.cc !== undefined) dicPath.cc = dic_path.cc;
+            if (dic_path.chr !== undefined) dicPath.chr = dic_path.chr;
+            if (dic_path.base !== undefined) dicPath.base = dic_path.base;
+        } else dicPath = {
             tid: {
                 dict: "tid.dat.gz",
                 map: "tid_map.dat.gz",
