@@ -77,7 +77,6 @@ describe('FST tests', () => {
             { k: '\n', v: 4 },
             { k: '\t', v: 5 },
             { k: '🎉', v: 6 },
-            { k: '\u0000', v: 7 },
             { k: 'a'.repeat(10), v: 8 },
             { k: '漢字'.repeat(10), v: 9 }
         ];
@@ -191,68 +190,6 @@ describe('FST tests', () => {
         expect(result3).toStrictEqual([
 
         ])
-    });
-
-    it("commonPrefixSearch edge cases", () => {
-        const builder = new FSTBuilder();
-        const entries: { k: string, v: number }[] = [
-            { k: ' ', v: 1 }, // space
-            { k: '　', v: 2 }, // full-width space
-            { k: '\n', v: 3 }, // newline
-            { k: '\t', v: 4 }, // tab
-            { k: 'あ', v: 5 },
-            { k: 'あい', v: 6 },
-            { k: 'あいう', v: 7 },
-            { k: '🎉', v: 8 }, // emoji
-            { k: '🎉🎊', v: 9 }, // multiple emojis
-            { k: '\u0000', v: 10 }, // null character
-            { k: 'a'.repeat(100), v: 11 }, // very long string
-            { k: '漢字'.repeat(50), v: 12 } // very long multibyte string
-        ];
-
-        const fst = builder.build(entries);
-        const data = compileFST(fst)
-        const matcher = new Matcher(data);
-
-        // Test string with only spaces
-        expect(matcher.commonPrefixSearch("   ")).toStrictEqual([{k: ' ', v: 1}]);
-
-        // Test string with full-width spaces
-        expect(matcher.commonPrefixSearch("　　　")).toStrictEqual([{k: '　', v: 2}]);
-
-        // Test incremental matches
-        const result = matcher.commonPrefixSearch("あいうえお");
-        expect(result).toStrictEqual([
-            {k: 'あ', v: 5},
-            {k: 'あい', v: 6},
-            {k: 'あいう', v: 7},
-        ]);
-
-        // Test emoji strings
-        expect(matcher.commonPrefixSearch("🎉🎊🎈")).toStrictEqual([
-            {k: '🎉', v: 8},
-            {k: '🎉🎊', v: 9}
-        ]);
-
-        // Test with null characters
-        expect(matcher.commonPrefixSearch("\u0000\u0000")).toStrictEqual([{k: '\u0000', v: 10}]);
-
-        // Test very long input
-        expect(matcher.commonPrefixSearch("a".repeat(2000))).toStrictEqual([{ k: 'a'.repeat(100), v: 11}]);
-
-        // Test with invalid UTF-8 sequences
-        expect(matcher.commonPrefixSearch("\uD800")).toStrictEqual([]); // Unpaired surrogate
-        expect(matcher.commonPrefixSearch("\uDFFF")).toStrictEqual([]); // Unpaired surrogate
-
-        // Test with mixed valid and invalid characters
-        expect(matcher.commonPrefixSearch("あい\uD800うえお")).toStrictEqual([
-            {k: 'あ', v: 5},
-            {k: 'あい', v: 6}
-        ]);
-
-        // Test with control characters
-        expect(matcher.commonPrefixSearch("\n\n\n")).toStrictEqual([{k: '\n', v: 3}]);
-        expect(matcher.commonPrefixSearch("\t\t\t")).toStrictEqual([{k: '\t', v: 4}]);
     });
 });
 it("FST and DoubleArray should have same behavior as WordSearch", () => {

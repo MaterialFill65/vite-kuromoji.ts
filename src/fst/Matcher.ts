@@ -6,7 +6,7 @@ class Matcher implements WordSearch {
 	private data: Uint8Array;
 	private alignmentSize: number;
 
-	constructor(dictData?: Uint8Array, alignmentSize: AlignmentSize = AlignmentSize.ONE_BYTE) {
+	constructor(dictData?: Uint8Array, alignmentSize: AlignmentSize = AlignmentSize.FOUR_BYTES) {
 		if (dictData) {
 			this.data = dictData;
 			this.alignmentSize = alignmentSize;

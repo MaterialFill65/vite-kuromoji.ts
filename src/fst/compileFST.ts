@@ -1,7 +1,7 @@
 import { FST, AlignmentSize, FLAG_LAST_ARC, FLAG_ARC_HAS_OUTPUT, alignSize, FLAG_FINAL_ARC, FLAG_ARC_HAS_FINAL_OUTPUT } from "./FST";
 
 
-export function compileFST(fst: FST, alignmentSize: AlignmentSize = AlignmentSize.ONE_BYTE): Uint8Array {
+export function compileFST(fst: FST, alignmentSize: AlignmentSize = AlignmentSize.FOUR_BYTES): Uint8Array {
 	const bufferPool = new ArrayBuffer(4096);
 	const view = new DataView(bufferPool);
 	const arcs: Uint8Array[] = [];

@@ -9,9 +9,13 @@ import ViterbiSearcher from "./viterbi/ViterbiSearcher";
 
 const PUNCTUATION = /、|。/;
 
-interface stream_DF<T>{
+interface interDF<T> {
 	data: T,
 	eos: boolean
+}
+export interface exDF<T, F> {
+	content: T
+	flag: F,
 }
 
 /**
@@ -25,9 +29,6 @@ class Tokenizer {
 	viterbi_builder: ViterbiBuilder;
 	viterbi_searcher: ViterbiSearcher;
 	formatter: Formatter;
-	stream: TransformStream<string, Token[]>;
-	writable: WritableStreamDefaultWriter<string>;
-	readble: ReadableStreamDefaultReader<Token[]>;
 
 	constructor(dic: DynamicDictionaries, formatter: Formatter) {
 		this.token_info_dictionary = dic.token_info_dictionary;
@@ -35,9 +36,6 @@ class Tokenizer {
 		this.viterbi_builder = new ViterbiBuilder(dic);
 		this.viterbi_searcher = new ViterbiSearcher(dic.connection_costs);
 		this.formatter = formatter;
-		this.stream = this.getTokenizeStream()
-		this.writable = this.stream.writable.getWriter()
-		this.readble = this.stream.readable.getReader()
 	}
 	/**
 	 * Split into sentence by punctuation
@@ -76,163 +74,161 @@ class Tokenizer {
 		return tokens;
 	}
 
-	async tokenize(text: string): Promise<Token[]> {
-		if(text === ""){
-			return []
+	async tokenize<T extends any>(text: string, flags: T): Promise<Token[]> {
+		const stream = this.getTokenizeStream<T>();
+		const writer = stream.writable.getWriter();
+		writer.write({
+			flag: flags,
+			content: text
+		});
+		writer.close();
+		const reader = stream.readable.getReader();
+		const tokens: Token[] = [];
+		while (true) {
+			const { value, done } = await reader.read();
+			if (value) {
+				tokens.push(...value.content);
+			}
+			if (done) break;
 		}
-		await this.writable.write(text);
-
-		const { value } = await this.readble.read();
-		return value!;
+		return tokens;
 	}
 
-	getTokenizeStream(){
-		let buffer: Token[] = []
-		const concatStream = new TransformStream<Token, Token[]>({
-			transform: (token, controller) => {
-				if (token.word_type === "EOS"){
-					controller.enqueue(buffer)
-					buffer = []
-				}else{
-					buffer.push(token)
-				}
-			}
-		});
-		const stream = this.getTokenStream()
-
-		return {
-			writable: stream.writable,
-			readable: stream.readable
-				.pipeThrough(concatStream)
-		} as TransformStream<string, Token[]>
-	}
-
-	getTokenStream(){
-		const concatStream = new TransformStream<stream_DF<Token>, Token>({
+	getTokenizeStream<F>() {
+		let buffer: Token[] = [];
+		const concatStream = new TransformStream<exDF<Token, F>, exDF<Token[], F>>({
 			transform: (data, controller) => {
-				controller.enqueue(data.data)
-				if(data.eos)
+				if (data.content.word_type === "EOS") {
 					controller.enqueue({
-						word_id: -1,
-						word_type: "EOS",
-						word_position: data.data.word_position,
-						surface_form: "",
-						pos: "*",
-						pos_detail_1: "*",
-						pos_detail_2: "*",
-						pos_detail_3: "*",
-						conjugated_type: "*",
-						conjugated_form: "*",
-						basic_form: "*",
+						content: buffer,
+						flag: data.flag
 					});
-			}
-		});
-		const stream = this.getStream()
-		
-		return {
-			writable: stream.writable,
-			readable: stream.readable
-			.pipeThrough(concatStream)		
-		} as TransformStream<string, Token>
-	}
-
-	private getStream() {
-		const splitStream = new TransformStream<string, stream_DF<string>>({
-			transform: (data, controller) => {
-				const sentences = Tokenizer.splitByPunctuation(data);
-				for (let i = 0; i < sentences.length; i++) {
-					const sentence = sentences[i];
-					controller.enqueue({
-						data: sentence,
-						eos: sentences.length - 1 === i
-					})
+					buffer = [];
+				} else {
+					buffer.push(data.content);
 				}
 			}
 		});
+		const stream = this.getTokenStream<F>();
 
-		const latticeStream = new TransformStream<stream_DF<string>, stream_DF<ViterbiLattice>>({
+		return {
+			writable: stream.writable,
+			readable: stream.readable.pipeThrough(concatStream)
+		} as TransformStream<exDF<string, F>, exDF<Token[], F>>;
+	}
+
+	getTokenStream<F>() {
+		const concatStream = new TransformStream<exDF<interDF<Token>, F>, exDF<Token, F>>({
 			transform: (data, controller) => {
 				controller.enqueue({
-					data: this.getLattice(data.data), 
-					eos: data.eos
+					flag: data.flag,
+					content: data.content.data
+				});
+				if (data.content.eos) {
+					controller.enqueue({
+						flag: data.flag,
+						content: {
+							word_id: -1,
+							word_type: "EOS",
+							word_position: data.content.data.word_position,
+							surface_form: "",
+							pos: "*",
+							pos_detail_1: "*",
+							pos_detail_2: "*",
+							pos_detail_3: "*",
+							conjugated_type: "*",
+							conjugated_form: "*",
+							basic_form: "*",
+						}
+					});
+				}
+			}
+		});
+		const stream = this.getStream<F>();
+
+		return {
+			writable: stream.writable,
+			readable: stream.readable.pipeThrough(concatStream)
+		} as TransformStream<exDF<string, F>, exDF<Token, F>>;
+	}
+
+	private getStream<F>() {
+		const splitStream = new TransformStream<exDF<string, F>, exDF<interDF<string>, F>>({
+			transform: (data, controller) => {
+				const sentences = Tokenizer.splitByPunctuation(data.content);
+				sentences.forEach((sentence, index) => {
+					controller.enqueue({
+						content: {
+							data: sentence,
+							eos: index === sentences.length - 1
+						},
+						flag: data.flag
+					});
 				});
 			}
 		});
 
-		const viterbiStream = new TransformStream<stream_DF<ViterbiLattice>, stream_DF<ViterbiNode>>({
+		const latticeStream = new TransformStream<exDF<interDF<string>, F>, exDF<interDF<ViterbiLattice>, F>>({
 			transform: (data, controller) => {
-				const nodes = this.viterbi_searcher.search(data.data)
-				for (let i = 0; i < nodes.length; i++) {
-					const node = nodes[i];
-					controller.enqueue({
-						data: node,
-						eos: data.eos && nodes.length - 1 === i
-					})
-				}
+				controller.enqueue({
+					content: {
+						data: this.getLattice(data.content.data),
+						eos: data.content.eos
+					},
+					flag: data.flag
+				});
 			}
 		});
 
-		const tokenizeStream = new TransformStream<stream_DF<ViterbiNode>, stream_DF<Token>>({
+		const viterbiStream = new TransformStream<exDF<interDF<ViterbiLattice>, F>, exDF<interDF<ViterbiNode>, F>>({
 			transform: (data, controller) => {
-				const node = data.data
+				const nodes = this.viterbi_searcher.search(data.content.data);
+				nodes.forEach((node, index) => {
+					controller.enqueue({
+						content: {
+							data: node,
+							eos: data.content.eos && index === nodes.length - 1
+						},
+						flag: data.flag
+					});
+				});
+			}
+		});
+
+		const tokenizeStream = new TransformStream<exDF<interDF<ViterbiNode>, F>, exDF<interDF<Token>, F>>({
+			transform: (data, controller) => {
+				const node = data.content.data;
 				let token: Token;
 				let features: string[];
 				let features_line: string | undefined;
 				if (node.type === "KNOWN") {
-					features_line = this.token_info_dictionary.getFeatures(
-						node.name.toString(),
-					);
-					if (features_line == null) {
-						features = [];
-					} else {
-						features = features_line.split(",");
-					}
-					token = this.formatter.formatEntry(
-						node.name,
-						node.start_pos,
-						node.type,
-						features,
-					);
+					features_line = this.token_info_dictionary.getFeatures(node.name.toString());
+					features = features_line ? features_line.split(",") : [];
+					token = this.formatter.formatEntry(node.name, node.start_pos, node.type, features);
 				} else if (node.type === "UNKNOWN") {
-					// Unknown word
-					features_line = this.unknown_dictionary.getFeatures(
-						node.name.toString(),
-					);
-					if (features_line == null) {
-						features = [];
-					} else {
-						features = features_line.split(",");
-					}
-					token = this.formatter.formatUnknownEntry(
-						node.name,
-						node.start_pos,
-						node.type,
-						features,
-						node.surface_form,
-					);
+					features_line = this.unknown_dictionary.getFeatures(node.name.toString());
+					features = features_line ? features_line.split(",") : [];
+					token = this.formatter.formatUnknownEntry(node.name, node.start_pos, node.type, features, node.surface_form);
 				} else {
-					// TODO User dictionary
-					token = this.formatter.formatEntry(
-						node.name,
-						node.start_pos,
-						node.type,
-						[],
-					);
+					token = this.formatter.formatEntry(node.name, node.start_pos, node.type, []);
 				}
 				controller.enqueue({
-					data: token,
-					eos: data.eos
-				})
+					content: {
+						data: token,
+						eos: data.content.eos
+					},
+					flag: data.flag
+				});
 			}
 		});
-	
+
 		return {
 			writable: splitStream.writable,
 			readable: splitStream.readable
 				.pipeThrough(latticeStream)
 				.pipeThrough(viterbiStream)
 				.pipeThrough(tokenizeStream)
-		} as TransformStream<string, stream_DF<Token>>
+		} as TransformStream<exDF<string, F>, exDF<interDF<Token>, F>>;
 	}
 
 	tokenizeForSentence(sentence: string, tokens: Token[] = []) {
@@ -296,6 +292,7 @@ class Tokenizer {
 
 		return tokens;
 	}
+
 	/**
 	 * Build word lattice
 	 * @param {string} text Input text to analyze
