@@ -27,7 +27,7 @@ Key Feature
 
 Bench
 -----
-Trie: 66529.34 tokens/second with Stream
+Trie: 66529.34 tokens/second with Stream<br>
 FST: 511 tokens/second with tream
 
 Directory
