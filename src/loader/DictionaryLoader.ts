@@ -123,7 +123,7 @@ class DictionaryLoader {
 				);
 			}
 			// What the hell... They decompressed it automatically...
-			return await response.arrayBuffer();
+			compressedData = new Uint8Array(await response.arrayBuffer());
 		}
 
 		if (!file.compression) {

@@ -74,11 +74,11 @@ class Tokenizer {
 		return tokens;
 	}
 
-	async tokenize<T extends any>(text: string, flags: T): Promise<Token[]> {
-		const stream = this.getTokenizeStream<T>();
+	async tokenize<T extends any>(text: string): Promise<Token[]> {
+		const stream = this.getTokenizeStream<void>();
 		const writer = stream.writable.getWriter();
 		writer.write({
-			flag: flags,
+			flag: void 0,
 			content: text
 		});
 		writer.close();
