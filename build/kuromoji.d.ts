@@ -415,7 +415,7 @@ declare class Tokenizer {
      * @returns {Array} Tokens
      */
     tokenizeSync(text: string): Token[];
-    tokenize<T extends any>(text: string, flags: T): Promise<Token[]>;
+    tokenize<T extends any>(text: string): Promise<Token[]>;
     getTokenizeStream<F>(): TransformStream<exDF<string, F>, exDF<Token[], F>>;
     getTokenStream<F>(): TransformStream<exDF<string, F>, exDF<Token, F>>;
     tokenizeForSentence(sentence: string, tokens?: Token[]): Token[];

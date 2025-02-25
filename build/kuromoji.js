@@ -387,11 +387,11 @@ const $1d80c1e34dd115b9$var$PUNCTUATION = /、|。/;
         }
         return tokens;
     }
-    async tokenize(text, flags) {
+    async tokenize(text) {
         const stream = this.getTokenizeStream();
         const writer = stream.writable.getWriter();
         writer.write({
-            flag: flags,
+            flag: void 0,
             content: text
         });
         writer.close();
@@ -838,14 +838,17 @@ class $cd8ea557b7be61b3$var$Matcher {
         const buffer = textEncoder.encode(word);
         const searchResult = [];
         for(let i = 1; i <= buffer.length; i++){
-            const [accepted, result] = this.run(buffer.slice(0, i));
+            const target = buffer.slice(0, i);
+            const [accepted, result] = this.run(target);
             if (!accepted) continue;
             const arrayed = Array.from(result);
-            const tmp_searchResult = arrayed.map((enc_output)=>({
-                    k: textDecoder.decode(buffer.slice(0, i)),
-                    v: Number.parseInt(textDecoder.decode(enc_output))
-                }));
-            searchResult.push(tmp_searchResult[0]);
+            const enc_output = arrayed[0];
+            const key = textDecoder.decode(target);
+            const value = Number(textDecoder.decode(enc_output));
+            searchResult.push({
+                k: key,
+                v: value
+            });
         }
         return searchResult;
     }
@@ -2668,7 +2671,7 @@ var $ed082760b2618cdb$var$_DecompressionStream;
             const response = await fetch(base + file.path);
             if (!response.ok) throw new Error(`Failed to fetch ${base + file.path}: ${response.statusText}`);
             // What the hell... They decompressed it automatically...
-            return await response.arrayBuffer();
+            compressedData = new Uint8Array(await response.arrayBuffer());
         }
         if (!file.compression) file.compression = "gzip";
         // Decompress
