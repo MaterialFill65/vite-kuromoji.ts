@@ -1,4 +1,4 @@
-import { FST, State } from "./FST";
+import { FST, State, compareUint8Arrays } from "./FST";
 import { createMinimumTransducer } from "./createMinimumTransducer";
 
 interface KeyValue {
@@ -27,6 +27,8 @@ export class FSTBuilder {
 	 */
 	build(keys: KeyValue[]): FST {
 		// Convert key string to ArrayBuffer
+		console.log("Building FST");
+
 		const textEncoder = new TextEncoder()
 		const buff_keys = keys.map<{ k: Uint8Array, v: Uint8Array }>((k: KeyValue) => {
 			return {
@@ -35,6 +37,7 @@ export class FSTBuilder {
 			}
 		});
 
-		return createMinimumTransducer(buff_keys);
+		const sorted = buff_keys.sort((a, b) => compareUint8Arrays(a.k, b.k));
+		return createMinimumTransducer(sorted);
 	}
 }

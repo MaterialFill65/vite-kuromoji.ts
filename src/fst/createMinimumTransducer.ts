@@ -1,7 +1,6 @@
 import { internalKeyValue, FST, compareUint8Arrays, State, copyState, prefixLen } from "./FST";
 
 export function createMinimumTransducer(inputs: internalKeyValue[]): FST {
-	inputs.sort((a, b) => compareUint8Arrays(a.k, b.k));
 	const start_time = Date.now();
 	let last_printed = 0;
 	const inputs_size = inputs.length;
@@ -28,7 +27,6 @@ export function createMinimumTransducer(inputs: internalKeyValue[]): FST {
 		return s;
 	};
 
-	const outputBuffer = new Uint8Array(1024);
 	let prev_word: Uint8Array = new Uint8Array();
 
 	let processed = 0;
@@ -39,11 +37,10 @@ export function createMinimumTransducer(inputs: internalKeyValue[]): FST {
 		current_word = input.k;
 		current_output = input.v;
 
-		// console.debug('current word: ' + String.fromCharCode(...current_word));
-		// console.debug('current_output: ' + String.fromCharCode(...current_output));
-		if (compareUint8Arrays(current_word, prev_word) < 0) {
-			throw new Error("Input words must be sorted lexicographically.");
-		}
+		// Assert
+		// if (compareUint8Arrays(current_word, prev_word) < 0) {
+		// 	throw new Error("Input words must be sorted lexicographically.");
+		// }
 
 		const pref_len = prefixLen(prev_word, current_word);
 
@@ -116,7 +113,7 @@ export function createMinimumTransducer(inputs: internalKeyValue[]): FST {
 		// progress
 		processed++;
 		const elapsed = Math.round((Date.now() - start_time) / 1000);
-		if (elapsed % 30 === 0 && elapsed > last_printed) {
+		if (elapsed % 5 === 0 && elapsed > last_printed) {
 			const progress = (processed / inputs_size) * 100;
 			console.log(`elapsed=${elapsed}sec, progress: ${progress} %`);
 			last_printed = elapsed;

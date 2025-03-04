@@ -98,7 +98,7 @@ class DictionaryBuilder {
 	 * @returns {{trie: WordSearch, token_info_dictionary: TokenInfoDictionary}}
 	 */
 	buildTokenInfoDictionary(isTrie = true, all = false): {
-		word: {fst?: WordSearch, trie?: WordSearch};
+		word: { fst?: Matcher, trie?: DoubleArray };
 		token_info_dictionary: TokenInfoDictionary;
 	} {
 		const token_info_dictionary = new TokenInfoDictionary();

@@ -74,7 +74,7 @@ class Tokenizer {
 		return tokens;
 	}
 
-	async tokenize<T extends any>(text: string): Promise<Token[]> {
+	async tokenize(text: string): Promise<Token[]> {
 		const stream = this.getTokenizeStream<void>();
 		const writer = stream.writable.getWriter();
 		writer.write({
@@ -130,7 +130,7 @@ class Tokenizer {
 						content: {
 							word_id: -1,
 							word_type: "EOS",
-							word_position: data.content.data.word_position,
+							word_position: data.content.data.word_position + data.content.data.surface_form.length,
 							surface_form: "",
 							pos: "*",
 							pos_detail_1: "*",
@@ -195,23 +195,30 @@ class Tokenizer {
 			}
 		});
 
+		let last_token = 0,
+			adjust_pos = 0;
+
 		const tokenizeStream = new TransformStream<exDF<interDF<ViterbiNode>, F>, exDF<interDF<Token>, F>>({
 			transform: (data, controller) => {
 				const node = data.content.data;
+				if (adjust_pos + node.start_pos < last_token) {
+					adjust_pos = last_token;
+				}
 				let token: Token;
 				let features: string[];
 				let features_line: string | undefined;
 				if (node.type === "KNOWN") {
 					features_line = this.token_info_dictionary.getFeatures(node.name.toString());
 					features = features_line ? features_line.split(",") : [];
-					token = this.formatter.formatEntry(node.name, node.start_pos, node.type, features);
+					token = this.formatter.formatEntry(node.name, adjust_pos + node.start_pos, node.type, features);
 				} else if (node.type === "UNKNOWN") {
 					features_line = this.unknown_dictionary.getFeatures(node.name.toString());
 					features = features_line ? features_line.split(",") : [];
-					token = this.formatter.formatUnknownEntry(node.name, node.start_pos, node.type, features, node.surface_form);
+					token = this.formatter.formatUnknownEntry(node.name, adjust_pos +  node.start_pos, node.type, features, node.surface_form);
 				} else {
-					token = this.formatter.formatEntry(node.name, node.start_pos, node.type, []);
+					token = this.formatter.formatEntry(node.name, adjust_pos + node.start_pos, node.type, []);
 				}
+				last_token = token.word_position;
 				controller.enqueue({
 					content: {
 						data: token,
@@ -219,6 +226,10 @@ class Tokenizer {
 					},
 					flag: data.flag
 				});
+				if(data.content.eos){
+					last_token = 0;
+					adjust_pos = 0;
+				}
 			}
 		});
 

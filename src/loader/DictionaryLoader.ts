@@ -23,31 +23,31 @@ class DictionaryLoader {
 	constructor(dic_path: manifest["dicPath"]) {
 		let dicPath: DetailedDicPath;
 		dic_path ??= "/dict";
+		dicPath = {
+			tid: {
+				dict: "tid.dat",
+				map: "tid_map.dat",
+				pos: "tid_pos.dat",
+			},
+			unk: {
+				dict: "unk.dat",
+				map: "unk_map.dat",
+				pos: "unk_pos.dat",
+			},
+			cc: "cc.dat",
+			chr: {
+				char: "unk_char.dat",
+				compat: "unk_compat.dat",
+				invoke: "unk_invoke.dat",
+			},
+			word: {
+				type: "Trie",
+				base: "base.dat",
+				check: "check.dat",
+			},
+			base: "/dict",
+		};
 		if (typeof dic_path !== "string") {
-			dicPath = {
-				tid: {
-					dict: "tid.dat.gz",
-					map: "tid_map.dat.gz",
-					pos: "tid_pos.dat.gz",
-				},
-				unk: {
-					dict: "unk.dat.gz",
-					map: "unk_map.dat.gz",
-					pos: "unk_pos.dat.gz",
-				},
-				cc: "cc.dat.gz",
-				chr: {
-					char: "unk_char.dat.gz",
-					compat: "unk_compat.dat.gz",
-					invoke: "unk_invoke.dat.gz",
-				},
-				word: {
-					type: "Trie",
-					base: "base.dat.gz",
-					check: "check.dat.gz",
-				},
-				base: "/dict",
-			};
 			if (dic_path.word !== undefined) {
 				dicPath.word = dic_path.word;
 			}
@@ -70,30 +70,7 @@ class DictionaryLoader {
 				dicPath.base = dic_path.base;
 			}
 		} else {
-			dicPath = {
-				tid: {
-					dict: "tid.dat.gz",
-					map: "tid_map.dat.gz",
-					pos: "tid_pos.dat.gz",
-				},
-				unk: {
-					dict: "unk.dat.gz",
-					map: "unk_map.dat.gz",
-					pos: "unk_pos.dat.gz",
-				},
-				cc: "cc.dat.gz",
-				chr: {
-					char: "unk_char.dat.gz",
-					compat: "unk_compat.dat.gz",
-					invoke: "unk_invoke.dat.gz",
-				},
-				word: {
-					type: "Trie",
-					base: "base.dat.gz",
-					check: "check.dat.gz",
-				},
-				base: dic_path,
-			};
+			dicPath.base = dic_path
 		}
 		this.dic_path = dicPath;
 	}
@@ -101,19 +78,19 @@ class DictionaryLoader {
 		base: string,
 		file: DetailedFile,
 	): Promise<ArrayBuffer> {
-		let compressedData: Uint8Array;
+		let data: Uint8Array;
 		if (typeof globalThis.Deno !== "undefined") {
 			// Okay. I'm on Deno. Let's just read it.
-			compressedData = await Deno.readFile(base + file.path);
+			data = await Deno.readFile(base + file.path);
 		} else if (typeof globalThis.Bun !== "undefined") {
 			// Now, I'm on Bun. Let's use `Bun.file`.
-			compressedData = Buffer.from(
+			data = Buffer.from(
 				await Bun.file(base + file.path).arrayBuffer(),
 			);
 		} else if (typeof globalThis.process !== "undefined") {
 			// Yep, I guess I'm on Node. read file by using promise!
 			const fs = await import("node:fs/promises");
-			compressedData = await fs.readFile(base + file.path);
+			data = await fs.readFile(base + file.path);
 		} else {
 			// Looks like I'm in browser. Let's fetch it!
 			const response = await fetch(base + file.path);
@@ -122,20 +99,20 @@ class DictionaryLoader {
 					`Failed to fetch ${base + file.path}: ${response.statusText}`,
 				);
 			}
-			// What the hell... They decompressed it automatically...
-			compressedData = new Uint8Array(await response.arrayBuffer());
+			data = new Uint8Array(await response.arrayBuffer());
 		}
 
 		if (!file.compression) {
-			file.compression = "gzip";
+			file.compression = "raw";
 		}
+
 		// Decompress
 		if (file.compression === "raw") {
-			return compressedData.buffer as ArrayBuffer;
+			return data.buffer as ArrayBuffer;
 		}
 
 		const ds = new DecompressionStream(file.compression);
-		const decompressedStream = new Blob([compressedData])
+		const decompressedStream = new Blob([data])
 			.stream()
 			.pipeThrough(ds);
 		const decompressedData = await new Response(

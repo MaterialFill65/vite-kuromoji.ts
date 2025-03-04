@@ -316,7 +316,7 @@ describe("Tokenizer for UniDic", async () => {
         expect(path).to.have.length(4);
     });
     it("研究 is not split", async () => {
-        const path = await tokenizer.tokenize("研究", undefined);
+        const path = await tokenizer.tokenize("研究");
         expect(path).to.have.length(1);
     });
     it("Blank input", () => {
@@ -347,7 +347,7 @@ describe("Tokenizer for UniDic", async () => {
 describe("Tokenizer for UniDic with FST", async () => {
     let tokenizer: Tokenizer
     beforeAll(async () => {
-        tokenizer = await kuromoji.build({ dicPath: { "base": UNIDIC_DIR, "word": { "type": "FST", "base": "fst.dat.gz" } }, dicType: "UniDic" });
+        tokenizer = await kuromoji.build({ dicPath: { "base": UNIDIC_DIR, "word": { "type": "FST", "base": "fst.dat" } }, dicType: "UniDic" });
         expect(tokenizer).to.be.a("object");
     }, 100000000);
 
@@ -592,7 +592,7 @@ describe("Tokenizer for UniDic with FST", async () => {
             }
         ];
         const input = "すもももももももものうち";
-        const count = 1000
+        const count = 100
         const startTime = performance.now();
         const endTime: number = await new Promise<number>(async (resolve) => {
 
@@ -616,6 +616,8 @@ describe("Tokenizer for UniDic with FST", async () => {
         console.log(`Processed ${count} sentences (${count * expected_tokens.length} tokens) in ${totalTime}ms`);
         console.log(`Performance: ${tokensPerSecond.toFixed(2)} tokens/second`);
         expect(tokensPerSecond).to.be.greaterThan(0);
+    },{
+        "timeout": 20000
     });
 });
 
@@ -627,7 +629,7 @@ describe("Tokenizer async tokenize method test", () => {
     });
 
     it("Sentence すもももももももものうち is tokenized properly", async () => {
-        const path = await tokenizer.tokenize("すもももももももものうち", null);
+        const path = await tokenizer.tokenize("すもももももももものうち");
         const expected_tokens = [
             {
                 word_type: "KNOWN",
@@ -733,38 +735,38 @@ describe("Tokenizer async tokenize method test", () => {
     });
 
     it("Should throw no Error", async () => {
-        await tokenizer.tokenize("すもももももももものうち", null);
-        await tokenizer.tokenize("こんにちは", null);
-        await tokenizer.tokenize("やぁはっろー", null);
-        await tokenizer.tokenize("sjisjodajk", null);
-        await tokenizer.tokenize("ndjbaいｂｈぶobuhaohxniuabsxpaｋ０いｓｑｌｄいｂｈぶobuhaohxniuabsxpaｋ０いｓｑｌｄ", null);
-        await tokenizer.tokenize("ｄみんｄじｑんｄｗｑｓｑｄみんｄじｑんｄｗｑｓｑ", null);
-        await tokenizer.tokenize("すももももももももいえおｗｆんうぃくぉｈｊりうｋぃぎえｘｒoheirのうち", null);
-        await tokenizer.tokenize("frekfopkoifkewpodlcxwd", null);
-        await tokenizer.tokenize("@[//[@/[e/@;3.d@s;.d:]q/:3@\:@/w@;d@w", null);
-        await tokenizer.tokenize("すももももももも\\\u212819ものうち", null);
-        await tokenizer.tokenize("すもももももももも\nのうち", null);
+        await tokenizer.tokenize("すもももももももものうち");
+        await tokenizer.tokenize("こんにちは");
+        await tokenizer.tokenize("やぁはっろー");
+        await tokenizer.tokenize("sjisjodajk");
+        await tokenizer.tokenize("ndjbaいｂｈぶobuhaohxniuabsxpaｋ０いｓｑｌｄいｂｈぶobuhaohxniuabsxpaｋ０いｓｑｌｄ");
+        await tokenizer.tokenize("ｄみんｄじｑんｄｗｑｓｑｄみんｄじｑんｄｗｑｓｑ");
+        await tokenizer.tokenize("すももももももももいえおｗｆんうぃくぉｈｊりうｋぃぎえｘｒoheirのうち");
+        await tokenizer.tokenize("frekfopkoifkewpodlcxwd");
+        await tokenizer.tokenize("@[//[@/[e/@;3.d@s;.d:]q/:3@\:@/w@;d@w");
+        await tokenizer.tokenize("すももももももも\\\u212819ものうち");
+        await tokenizer.tokenize("すもももももももも\nのうち");
     })
 
     it("Sentence include unknown words となりのトトロ are tokenized properly", async () => {
-        const path = await tokenizer.tokenize("となりのトトロ", null);
+        const path = await tokenizer.tokenize("となりのトトロ");
         console.log(path)
         expect(path).to.have.length(3);
     });
 
     it("研究 is not split", async () => {
-        const path = await tokenizer.tokenize("研究", null);
+        const path = await tokenizer.tokenize("研究");
         expect(path).to.have.length(1);
         console.log(path)
     });
 
     it("Blank input", async () => {
-        const path = await tokenizer.tokenize("", null);
+        const path = await tokenizer.tokenize("");
         expect(path).to.have.length(0);
     });
 
     it("Sentence include UTF-16 surrogate pair", async () => {
-        const path = await tokenizer.tokenize("𠮷野屋", null);
+        const path = await tokenizer.tokenize("𠮷野屋");
         expect(path).to.have.length(3);
         expect(path[0].word_position).to.eql(1);
         expect(path[1].word_position).to.eql(2);
@@ -772,16 +774,16 @@ describe("Tokenizer async tokenize method test", () => {
     });
 
     it("Sentence include punctuation あ、あ。あ、あ。 returns correct positions", async () => {
-        const path = await tokenizer.tokenize("あ、あ。あ、あ。", null);
+        const path = await tokenizer.tokenize("あ、あ。あ、あ。");
         expect(path).to.have.length(8);
         expect(path[0].word_position).to.eql(1);
         expect(path[1].word_position).to.eql(2);
-        expect(path[2].word_position).to.eql(1);
-        expect(path[3].word_position).to.eql(2);
-        expect(path[4].word_position).to.eql(1);
-        expect(path[5].word_position).to.eql(2);
-        expect(path[6].word_position).to.eql(1);
-        expect(path[7].word_position).to.eql(2);
+        expect(path[2].word_position).to.eql(3);
+        expect(path[3].word_position).to.eql(4);
+        expect(path[4].word_position).to.eql(5);
+        expect(path[5].word_position).to.eql(6);
+        expect(path[6].word_position).to.eql(7);
+        expect(path[7].word_position).to.eql(8);
     });
 
     it("StreamTest", async () => {

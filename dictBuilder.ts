@@ -149,17 +149,18 @@ async function writeCompressedFile(path: string, data: Arrays) {
     console.log("Saved file:", `${path}.gz`)
 }
 
+await Deno.mkdir(`dict/${type}`, { recursive: true });
 
-writeCompressedFile(`dict/${type}/fst.dat`, (dic.word.fst as FSTMatcher).getBuffer());
-writeCompressedFile(`dict/${type}/base.dat`, (dic.word.trie as DoubleArray).bc.getBaseBuffer());
-writeCompressedFile(`dict/${type}/check.dat`, (dic.word.trie as DoubleArray).bc.getCheckBuffer());
-writeCompressedFile(`dict/${type}/tid.dat`, dic.dic.token_info_dictionary.dictionary.buffer);
-writeCompressedFile(`dict/${type}/tid_pos.dat`, dic.dic.token_info_dictionary.pos_buffer.buffer);
-writeCompressedFile(`dict/${type}/tid_map.dat`, dic.dic.token_info_dictionary.targetMapToBuffer());
-writeCompressedFile(`dict/${type}/cc.dat`, dic.dic.connection_costs.buffer);
-writeCompressedFile(`dict/${type}/unk.dat`, dic.dic.unknown_dictionary.dictionary.buffer);
-writeCompressedFile(`dict/${type}/unk_pos.dat`, dic.dic.unknown_dictionary.pos_buffer.buffer);
-writeCompressedFile(`dict/${type}/unk_map.dat`, dic.dic.unknown_dictionary.targetMapToBuffer());
-writeCompressedFile(`dict/${type}/unk_char.dat`, dic.dic.unknown_dictionary.character_definition!.character_category_map);
-writeCompressedFile(`dict/${type}/unk_compat.dat`, dic.dic.unknown_dictionary.character_definition!.compatible_category_map);
-writeCompressedFile(`dict/${type}/unk_invoke.dat`, dic.dic.unknown_dictionary.character_definition!.invoke_definition_map!.toBuffer());
+await Deno.writeFile(`dict/${type}/fst.dat`, dic.word.fst!.getBuffer());
+await Deno.writeFile(`dict/${type}/base.dat`, new Uint8Array(dic.word.trie!.bc.getBaseBuffer().buffer));
+await Deno.writeFile(`dict/${type}/check.dat`, new Uint8Array(dic.word.trie!.bc.getCheckBuffer().buffer));
+await Deno.writeFile(`dict/${type}/tid.dat`, dic.dic.token_info_dictionary.dictionary.buffer);
+await Deno.writeFile(`dict/${type}/tid_pos.dat`, dic.dic.token_info_dictionary.pos_buffer.buffer);
+await Deno.writeFile(`dict/${type}/tid_map.dat`, dic.dic.token_info_dictionary.targetMapToBuffer());
+await Deno.writeFile(`dict/${type}/cc.dat`, new Uint8Array(dic.dic.connection_costs.buffer));
+await Deno.writeFile(`dict/${type}/unk.dat`, dic.dic.unknown_dictionary.dictionary.buffer);
+await Deno.writeFile(`dict/${type}/unk_pos.dat`, dic.dic.unknown_dictionary.pos_buffer.buffer);
+await Deno.writeFile(`dict/${type}/unk_map.dat`, dic.dic.unknown_dictionary.targetMapToBuffer());
+await Deno.writeFile(`dict/${type}/unk_char.dat`, dic.dic.unknown_dictionary.character_definition!.character_category_map);
+await Deno.writeFile(`dict/${type}/unk_compat.dat`, new Uint8Array(dic.dic.unknown_dictionary.character_definition!.compatible_category_map.buffer));
+await Deno.writeFile(`dict/${type}/unk_invoke.dat`, dic.dic.unknown_dictionary.character_definition!.invoke_definition_map!.toBuffer());
