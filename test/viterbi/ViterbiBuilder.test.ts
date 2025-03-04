@@ -54,7 +54,7 @@ describe("ViterbiBuilder",async () => {
         }
     });
 
-    const loader3 = new DictionaryLoader({"base":UNIDIC_DIR, "word":{"type":"FST","base":"fst.dat"}});
+    const loader3 = new DictionaryLoader({ "base": UNIDIC_DIR, "word": { "type": "FST", "base":"fst.dat.gz"}});
     const dic3 = await loader3.load();
     const viterbi_builder3: ViterbiBuilder = new ViterbiBuilder(dic3);
     it("UNIDIC Unknown word with FST", () => {

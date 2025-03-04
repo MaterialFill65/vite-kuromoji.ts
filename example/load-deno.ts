@@ -7,7 +7,7 @@ const tokenizer = await kuromoji.build({
     "base": DIC_DIR,
     "word": {
       "type": "FST",
-      "base": "fst.dat"
+      "base": "fst.dat.gz"
     }
   },
   dicType: "UniDic",

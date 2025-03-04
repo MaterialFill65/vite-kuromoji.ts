@@ -25,25 +25,25 @@ class DictionaryLoader {
 		dic_path ??= "/dict";
 		dicPath = {
 			tid: {
-				dict: "tid.dat",
-				map: "tid_map.dat",
-				pos: "tid_pos.dat",
+				dict: "tid.dat.gz",
+				map: "tid_map.dat.gz",
+				pos: "tid_pos.dat.gz",
 			},
 			unk: {
-				dict: "unk.dat",
-				map: "unk_map.dat",
-				pos: "unk_pos.dat",
+				dict: "unk.dat.gz",
+				map: "unk_map.dat.gz",
+				pos: "unk_pos.dat.gz",
 			},
-			cc: "cc.dat",
+			cc: "cc.dat.gz",
 			chr: {
-				char: "unk_char.dat",
-				compat: "unk_compat.dat",
-				invoke: "unk_invoke.dat",
+				char: "unk_char.dat.gz",
+				compat: "unk_compat.dat.gz",
+				invoke: "unk_invoke.dat.gz",
 			},
 			word: {
 				type: "Trie",
-				base: "base.dat",
-				check: "check.dat",
+				base: "base.dat.gz",
+				check: "check.dat.gz",
 			},
 			base: "/dict",
 		};

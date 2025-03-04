@@ -347,7 +347,7 @@ describe("Tokenizer for UniDic", async () => {
 describe("Tokenizer for UniDic with FST", async () => {
     let tokenizer: Tokenizer
     beforeAll(async () => {
-        tokenizer = await kuromoji.build({ dicPath: { "base": UNIDIC_DIR, "word": { "type": "FST", "base": "fst.dat" } }, dicType: "UniDic" });
+        tokenizer = await kuromoji.build({ dicPath: { "base": UNIDIC_DIR, "word": { "type": "FST", "base": "fst.dat.gz" } }, dicType: "UniDic" });
         expect(tokenizer).to.be.a("object");
     }, 100000000);
 
