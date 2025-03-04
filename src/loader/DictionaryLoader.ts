@@ -103,7 +103,7 @@ class DictionaryLoader {
 		}
 
 		if (!file.compression) {
-			file.compression = "raw";
+			file.compression = "gzip";
 		}
 
 		// Decompress

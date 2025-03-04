@@ -100,7 +100,7 @@ describe("DictionaryBuilder", () => {
                     conjugated_form: "*",
                     basic_form: "すもも",
                     reading: "スモモ",
-                    pronunciation: "スモモ\r"
+                    pronunciation: "スモモ"
                 },
                 {
                     word_type: "KNOWN",
@@ -114,7 +114,7 @@ describe("DictionaryBuilder", () => {
                     conjugated_form: "*",
                     basic_form: "も",
                     reading: "モ",
-                    pronunciation: "モ\r"
+                    pronunciation: "モ"
                 },
                 {
                     word_type: "KNOWN",
@@ -128,7 +128,7 @@ describe("DictionaryBuilder", () => {
                     conjugated_form: "*",
                     basic_form: "もも",
                     reading: "モモ",
-                    pronunciation: "モモ\r"
+                    pronunciation: "モモ"
                 },
                 {
                     word_type: "KNOWN",
@@ -142,7 +142,7 @@ describe("DictionaryBuilder", () => {
                     conjugated_form: "*",
                     basic_form: "も",
                     reading: "モ",
-                    pronunciation: "モ\r"
+                    pronunciation: "モ"
                 },
                 {
                     word_type: "KNOWN",
@@ -156,7 +156,7 @@ describe("DictionaryBuilder", () => {
                     conjugated_form: "*",
                     basic_form: "もも",
                     reading: "モモ",
-                    pronunciation: "モモ\r"
+                    pronunciation: "モモ"
                 },
                 {
                     word_type: "KNOWN",
@@ -170,7 +170,7 @@ describe("DictionaryBuilder", () => {
                     conjugated_form: "*",
                     basic_form: "の",
                     reading: "ノ",
-                    pronunciation: "ノ\r"
+                    pronunciation: "ノ"
                 },
                 {
                     word_type: "KNOWN",
@@ -184,7 +184,7 @@ describe("DictionaryBuilder", () => {
                     conjugated_form: "*",
                     basic_form: "うち",
                     reading: "ウチ",
-                    pronunciation: "ウチ\r"
+                    pronunciation: "ウチ"
                 }
             ];
 

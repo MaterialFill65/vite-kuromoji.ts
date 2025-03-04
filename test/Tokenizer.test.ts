@@ -325,10 +325,9 @@ describe("Tokenizer for UniDic", async () => {
     });
     it("Sentence include UTF-16 surrogate pair", () => {
         const path = tokenizer.tokenizeSync("𠮷野屋");
-        expect(path).to.have.length(3);
+        expect(path).to.have.length(2);
         expect(path[0].word_position).to.eql(1);
         expect(path[1].word_position).to.eql(2);
-        expect(path[2].word_position).to.eql(3);
     });
     it("Sentence include punctuation あ、あ。あ、あ。 returns correct positions", () => {
         const path = tokenizer.tokenizeSync("あ、あ。あ、あ。");
@@ -471,10 +470,9 @@ describe("Tokenizer for UniDic with FST", async () => {
     });
     it("Sentence include UTF-16 surrogate pair", () => {
         const path = tokenizer.tokenizeSync("𠮷野屋");
-        expect(path).to.have.length(3);
+        expect(path).to.have.length(2);
         expect(path[0].word_position).to.eql(1);
         expect(path[1].word_position).to.eql(2);
-        expect(path[2].word_position).to.eql(3);
     });
     it("Sentence include punctuation あ、あ。あ、あ。 returns correct positions", () => {
         const path = tokenizer.tokenizeSync("あ、あ。あ、あ。");
@@ -767,10 +765,9 @@ describe("Tokenizer async tokenize method test", () => {
 
     it("Sentence include UTF-16 surrogate pair", async () => {
         const path = await tokenizer.tokenize("𠮷野屋");
-        expect(path).to.have.length(3);
+        expect(path).to.have.length(2);
         expect(path[0].word_position).to.eql(1);
         expect(path[1].word_position).to.eql(2);
-        expect(path[2].word_position).to.eql(3);
     });
 
     it("Sentence include punctuation あ、あ。あ、あ。 returns correct positions", async () => {

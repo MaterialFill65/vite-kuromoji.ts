@@ -10,7 +10,7 @@ type Arrays =
     | Uint16Array
     | Uint32Array;
 
-const type = "unidic"
+const type = "ipadic"
 
 const DIC_DIR = `resources/${type}/`;
 const connection_costs_file = `${DIC_DIR}matrix.def`;
