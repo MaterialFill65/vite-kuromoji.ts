@@ -111,13 +111,19 @@ class DictionaryLoader {
 			return data.buffer as ArrayBuffer;
 		}
 
-		const ds = new DecompressionStream(file.compression);
-		const decompressedStream = new Blob([data])
-			.stream()
-			.pipeThrough(ds);
-		const decompressedData = await new Response(
-			decompressedStream,
-		).arrayBuffer();
+		let decompressedData: ArrayBuffer;
+		try{
+			const ds = new DecompressionStream(file.compression);
+			const decompressedStream = new Blob([data])
+				.stream()
+				.pipeThrough(ds);
+			decompressedData = await new Response(
+				decompressedStream,
+			).arrayBuffer();
+		}catch{
+			decompressedData = data.buffer as ArrayBuffer;
+		}
+		
 		return decompressedData;
 	}
 	/**
